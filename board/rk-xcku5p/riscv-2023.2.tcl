@@ -330,21 +330,31 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   create_bd_pin -dir O -type clk addn_clk_200
   create_bd_pin -dir I -type rst sys_reset
 
-  # DDR4 IP: MT40A512M16LY-062E, DDR4-2400, 32-bit, 200 MHz input
-  # Board interfaces supply pin placement; preset provides IP parameters.
+  # DDR4 IP: 2x MT40A512M16HA-075E components, 32-bit bus, DDR4-2666, 200 MHz input.
+  # Factory-verified parameters from KU5P_DEMO/06_DDR_AXI/ddr4_0.xci. The board ships
+  # with MT40A512M16LY-062E silicon, but Vivado 2023.2's IP catalog selects HA-075E as
+  # the electrically compatible entry; the LY variants have different refresh/ODT timings
+  # and will fail calibration.
   set ddr4_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:ddr4:2.2 ddr4_0]
   set_property -dict [list \
-    CONFIG.C0.DDR4_InputClockPeriod   {5000}                \
-    CONFIG.C0.DDR4_TimePeriod         {750}                 \
-    CONFIG.C0.DDR4_MemoryType         {Components}          \
-    CONFIG.C0.DDR4_MemoryPart         {MT40A512M16LY-075}   \
-    CONFIG.C0.DDR4_DataWidth          {32}                  \
-    CONFIG.C0.DDR4_CasLatency         {19}                  \
-    CONFIG.C0.DDR4_CasWriteLatency    {14}                  \
-    CONFIG.C0.DDR4_PhyClockRatio      {4:1}                 \
-    CONFIG.C0.DDR4_AxiIDWidth         {4}                   \
-    CONFIG.C0.DDR4_AxiDataWidth       {256}                 \
-    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {200}                 \
+    CONFIG.C0.DDR4_InputClockPeriod        {5000}                 \
+    CONFIG.C0.DDR4_TimePeriod              {750}                  \
+    CONFIG.C0.DDR4_PhyClockRatio           {4:1}                  \
+    CONFIG.C0.DDR4_MemoryType              {Components}           \
+    CONFIG.C0.DDR4_MemoryPart              {MT40A512M16HA-075E}   \
+    CONFIG.C0.DDR4_MemoryVoltage           {1.2V}                 \
+    CONFIG.C0.DDR4_Slot                    {Single}               \
+    CONFIG.C0.DDR4_DataWidth               {32}                   \
+    CONFIG.C0.DDR4_DataMask                {DM_NO_DBI}            \
+    CONFIG.C0.DDR4_CasLatency              {19}                   \
+    CONFIG.C0.DDR4_CasWriteLatency         {14}                   \
+    CONFIG.C0.DDR4_ChipSelect              {true}                 \
+    CONFIG.C0.DDR4_OutputDriverImpedenceControl {RZQ/7}           \
+    CONFIG.C0.DDR4_OnDieTermination        {RZQ/6}                \
+    CONFIG.C0.DDR4_AxiSelection            {true}                 \
+    CONFIG.C0.DDR4_AxiIDWidth              {4}                    \
+    CONFIG.C0.DDR4_AxiDataWidth            {256}                  \
+    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ         {200}                  \
   ] $ddr4_0
 
   # SmartConnect bridges CPU clock (aclk) and DDR4 UI clock (aclk1)
