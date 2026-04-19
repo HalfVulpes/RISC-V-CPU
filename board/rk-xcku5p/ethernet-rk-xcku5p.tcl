@@ -18,6 +18,7 @@ set files [list \
 add_files -norecurse -fileset $source_fileset $files
 
 set files [list \
+  [file normalize ../../board/${vivado_board_name}/ddr4.xdc] \
   [file normalize ../../board/${vivado_board_name}/ethernet.xdc] \
   [file normalize ../../ethernet/verilog-ethernet/lib/axis/syn/vivado/sync_reset.tcl] \
   [file normalize ../../ethernet/verilog-ethernet/lib/axis/syn/vivado/axis_async_fifo.tcl] \

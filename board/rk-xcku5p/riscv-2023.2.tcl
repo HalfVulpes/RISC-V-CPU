@@ -333,8 +333,6 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   # Board interfaces supply pin placement; preset provides IP parameters.
   set ddr4_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:ddr4:2.2 ddr4_0]
   set_property -dict [list \
-    CONFIG.C0_DDR4_BOARD_INTERFACE    {ddr4_sdram_c0}       \
-    CONFIG.C0_CLOCK_BOARD_INTERFACE   {ddr4_ref_clk}        \
     CONFIG.C0_DDR4_InputClockPeriod   {5000}                \
     CONFIG.C0_DDR4_TimePeriod         {833}                 \
     CONFIG.C0_DDR4_MemoryType         {Components}          \
@@ -415,11 +413,6 @@ proc create_root_design { parentCell } {
     -vlnv xilinx.com:interface:diff_clock_rtl:1.0 sys_diff_clock]
   set_property -dict [list CONFIG.FREQ_HZ {200000000}] $sys_diff_clock
 
-  # 200 MHz DDR4 reference (same physical pins T24/U24; Vivado merges at implementation)
-  set ddr4_sys_clk [create_bd_intf_port -mode Slave \
-    -vlnv xilinx.com:interface:diff_clock_rtl:1.0 ddr4_sys_clk]
-  set_property -dict [list CONFIG.FREQ_HZ {200000000}] $ddr4_sys_clk
-
   set ddr4_sdram_c0 [create_bd_intf_port -mode Master \
     -vlnv xilinx.com:interface:ddr4_rtl:1.0 ddr4_sdram_c0]
 
@@ -455,10 +448,6 @@ proc create_root_design { parentCell } {
   global rocket_module_name
   set RocketChip [create_bd_cell -type module -reference $rocket_module_name RocketChip]
 
-  # Link BD ports to board.xml interfaces so Vivado uses board file for XDC
-  set_property CONFIG.BOARD_INTERFACE {sys_diff_clock} [get_bd_intf_ports sys_diff_clock]
-  set_property CONFIG.BOARD_INTERFACE {ddr4_ref_clk}   [get_bd_intf_ports ddr4_sys_clk]
-  set_property CONFIG.BOARD_INTERFACE {ddr4_sdram_c0}  [get_bd_intf_ports ddr4_sdram_c0]
 
   # IBUFDS for sys_diff_clock → single-ended clk_in1 for clk_wiz_0
   set util_ds_buf_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0]
@@ -492,7 +481,7 @@ proc create_root_design { parentCell } {
   # Interface connections
   # ----------------------------------------------------------------
   connect_bd_intf_net [get_bd_intf_ports sys_diff_clock] [get_bd_intf_pins util_ds_buf_0/CLK_IN_D]
-  connect_bd_intf_net [get_bd_intf_ports ddr4_sys_clk]  [get_bd_intf_pins DDR/ddr4_sys_clk]
+  connect_bd_intf_net [get_bd_intf_ports sys_diff_clock] [get_bd_intf_pins DDR/ddr4_sys_clk]
   connect_bd_intf_net [get_bd_intf_ports ddr4_sdram_c0] [get_bd_intf_pins DDR/ddr4_sdram_c0]
   connect_bd_intf_net [get_bd_intf_ports rgmii]         [get_bd_intf_pins IO/RGMII]
   connect_bd_intf_net [get_bd_intf_pins IO/M00_AXI]     [get_bd_intf_pins RocketChip/DMA_AXI4]
