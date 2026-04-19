@@ -72,7 +72,6 @@ set bCheckIPs 1
 if { $bCheckIPs == 1 } {
    set list_check_ips "\
 xilinx.com:ip:clk_wiz:6.0\
-xilinx.com:ip:util_ds_buf:2.2\
 xilinx.com:ip:util_vector_logic:2.0\
 xilinx.com:ip:smartconnect:1.0\
 xilinx.com:ip:ddr4:2.2\
@@ -327,6 +326,7 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   create_bd_pin -dir I           axi_clock
   create_bd_pin -dir I           axi_reset
   create_bd_pin -dir O           c0_init_calib_complete
+  create_bd_pin -dir O -type clk ui_clk
   create_bd_pin -dir I -type rst sys_reset
 
   # DDR4 IP: MT40A512M16LY-062E, DDR4-2400, 32-bit, 200 MHz input
@@ -367,8 +367,10 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   # DDR4 AXI reset (from RocketChip aresetn) → SmartConnect
   connect_bd_net [get_bd_pins axi_reset]  [get_bd_pins smartconnect_1/aresetn]
 
-  # DDR4 UI clock → SmartConnect aclk1 (clock domain crossing)
-  connect_bd_net [get_bd_pins ddr4_0/c0_ddr4_ui_clk] [get_bd_pins smartconnect_1/aclk1]
+  # DDR4 UI clock → SmartConnect aclk1 (clock domain crossing) + exposed to root
+  connect_bd_net [get_bd_pins ddr4_0/c0_ddr4_ui_clk] \
+    [get_bd_pins smartconnect_1/aclk1] \
+    [get_bd_pins ui_clk]
 
   # DDR4 AXI reset: invert sync_rst → aresetn
   connect_bd_net [get_bd_pins ddr4_0/c0_ddr4_ui_clk_sync_rst] [get_bd_pins rst_inv/Op1]
@@ -408,7 +410,7 @@ proc create_root_design { parentCell } {
   # Interface ports
   # ----------------------------------------------------------------
 
-  # 200 MHz clock for clk_wiz_0 (via util_ds_buf IBUFDS → single-ended)
+  # 200 MHz system clock → DDR4 MIG (IBUFDS inside MIG); DDR4 UI clock feeds clk_wiz_0
   set sys_diff_clock [create_bd_intf_port -mode Slave \
     -vlnv xilinx.com:interface:diff_clock_rtl:1.0 sys_diff_clock]
   set_property -dict [list CONFIG.FREQ_HZ {200000000}] $sys_diff_clock
@@ -449,18 +451,15 @@ proc create_root_design { parentCell } {
   set RocketChip [create_bd_cell -type module -reference $rocket_module_name RocketChip]
 
 
-  # IBUFDS for sys_diff_clock → single-ended clk_in1 for clk_wiz_0
-  set util_ds_buf_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0]
-  set_property -dict [list CONFIG.C_BUF_TYPE {IBUFDS}] $util_ds_buf_0
-
-  # clk_wiz_0: 200 MHz input (No_buffer), VCO = 1000 MHz
+  # clk_wiz_0: 300 MHz input from DDR4 UI clock (No_buffer), VCO = 1500 MHz
   #   clk_out1 = 125 MHz         (Ethernet, phase reference for clk_out2)
   #   clk_out2 = 125 MHz @90°   (Ethernet TX USE_CLK90)
   #   clk_out3 = 100 MHz         (CPU/AXI/UART/SD)
+  # DDR4 UI clock is 300 MHz (DDR4-2400, 4:1 PHY ratio: 1200 MHz / 4 = 300 MHz)
   set clk_wiz_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0]
   set_property -dict [list \
     CONFIG.PRIM_SOURCE              {No_buffer}  \
-    CONFIG.PRIM_IN_FREQ             {200.000}    \
+    CONFIG.PRIM_IN_FREQ             {300.000}    \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_PHASE  {90.000}     \
@@ -480,7 +479,6 @@ proc create_root_design { parentCell } {
   # ----------------------------------------------------------------
   # Interface connections
   # ----------------------------------------------------------------
-  connect_bd_intf_net [get_bd_intf_ports sys_diff_clock] [get_bd_intf_pins util_ds_buf_0/CLK_IN_D]
   connect_bd_intf_net [get_bd_intf_ports sys_diff_clock] [get_bd_intf_pins DDR/ddr4_sys_clk]
   connect_bd_intf_net [get_bd_intf_ports ddr4_sdram_c0] [get_bd_intf_pins DDR/ddr4_sdram_c0]
   connect_bd_intf_net [get_bd_intf_ports rgmii]         [get_bd_intf_pins IO/RGMII]
@@ -492,8 +490,8 @@ proc create_root_design { parentCell } {
   # Net connections
   # ----------------------------------------------------------------
 
-  # util_ds_buf_0 → clk_wiz_0 (200 MHz buffered single-ended)
-  connect_bd_net [get_bd_pins util_ds_buf_0/IBUF_OUT] [get_bd_pins clk_wiz_0/clk_in1]
+  # DDR4 UI clock (300 MHz) → clk_wiz_0 for user/AXI/ETH clocks
+  connect_bd_net [get_bd_pins DDR/ui_clk] [get_bd_pins clk_wiz_0/clk_in1]
 
   # 125 MHz: Ethernet clock (clk_out1 = phase reference for clk_out2)
   connect_bd_net -net ETH_clock \
