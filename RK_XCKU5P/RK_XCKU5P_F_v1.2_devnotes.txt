@@ -1,8 +1,17 @@
 ================================================================================
   RK-XCKU5P-F V1.2 Development Board - Developer Reference Notes
   Manufacturer : RIGUKE
-  Document compiled from: schematic (V1.2), user manual (V0.2), factory XDC
+  Sources      : V1.2 schematic, user manual V0.2, factory pin constraint,
+                 KU5P_DEMO/06_DDR_AXI XCI (for DDR4 MIG parameters)
   All Chinese text has been translated to English.
+
+  Verification status (2026-04-19):
+    - Non-DDR peripheral pinout: matches factory constraint file, tested OK
+    - DDR4 pinout:                corrected from factory MIG example_design.xdc
+                                  (the commented-out entries in the factory
+                                  constraint file were aspirational/stale)
+    - Memory part selection:      use "MT40A512M16HA-075E" in the MIG GUI,
+                                  not "-LY-075" -- see Section 3.
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -23,14 +32,17 @@
     UltraRAM               : 18 Mb
     DSP Slices             : 1,824
     PCIe Gen3 x16          : 1 (used as x4 on this board)
-    100G Ethernet (RSFEC)  : 0
     Max Single-Ended HP IO : 208
     Max Single-Ended HD IO : 208
     GTH 16.3 Gb/s          : 28
     GTY 32.75 Gb/s         : 16
     CMTs (PLLs / MMCMs)    : 4
 
-  Vivado Version used in factory demos: 2023.1
+  Recommended Vivado Version:
+    - Factory demos : 2023.1
+    - This project  : 2023.2 (works with the same HDL/XDC)
+    - DO NOT use 2024.x or later: a hardware issue with the QSPI flash causes
+      it to be permanently locked when programmed from 2024+ tools.
 
 
 --------------------------------------------------------------------------------
@@ -39,54 +51,112 @@
   Board Name    : RK-XCKU5P-F
   Revision      : V1.2
   PCB Size      : 131.064 mm x 107.62 mm x 39.5 mm (L x W x H with heatsink)
-  Form Factor   : PCIe card (PCIe x8 slot, x4 electrical)
+  Form Factor   : PCIe card (x8 slot, x4 electrical)
 
   Document Change Log:
     V0.1  2025-05-10  Initial release
-    V0.2  2025-08-07  Zhengdian Atom IMX415 camera: resistor mod no longer needed
+    V0.2  2025-08-07  IMX415 camera: software fix obsoletes the resistor mod
+    V0.3  2026-04-19  DDR4 pinout corrected to match factory MIG XDC,
+                      documented MT40A512M16HA-075E memory part selection
 
 
 --------------------------------------------------------------------------------
 3. MEMORY
 --------------------------------------------------------------------------------
-  DDR4 SDRAM:
+  DDR4 SDRAM (on-board):
     Chips         : 2x Micron MT40A512M16LY-062E
-    Capacity      : 1 GB each = 2 GB total
-    Bus Width     : 32-bit (2 chips x 16-bit)
-    Max Speed     : 2666 Mb/s
-    FPGA Banks    : HP Bank 64 (data) + HP Bank 65 (address/control)
-    Interface     : Xilinx MIG IP required -- do NOT write manual DDR constraints
+    Organization  : 512 Mrows x 16-bit per chip = 1 GB each, 2 GB total
+    Bus Width     : 32-bit (2 chips in parallel, x16 each)
+    Max Speed     : DDR4-3200 (062E speed grade) -- run at DDR4-2666 here
+    FPGA Banks    : HP Bank 64 (DQ[0:15], DM/DQS for bytes 0-1)
+                    HP Bank 65 (addr/ctrl/clock and DQ[16:31], DM/DQS for
+                                bytes 2-3 -- yes, DQs split across banks)
+
+  [CRITICAL] MIG IP CONFIGURATION
+    The MT40A512M16LY-062E part is NOT in the Vivado 2023.2 catalog.
+    Select "MT40A512M16HA-075E" instead -- the HA-075E timing database in
+    MIG matches the actual LY chips at DDR4-2666. Do NOT use "MT40A512M16LY-075":
+    the LY-075 entry targets a different internal silicon generation and will
+    fail DQS_GATE calibration on this board.
+
+    Verified MIG settings (from KU5P_DEMO/06_DDR_AXI/ddr4_0.xci):
+       C0.DDR4_MemoryPart            MT40A512M16HA-075E
+       C0.DDR4_MemoryVoltage         1.2 V
+       C0.DDR4_MemoryType            Components
+       C0.DDR4_Slot                  Single
+       C0.DDR4_InputClockPeriod      5000 ps   (200 MHz input)
+       C0.DDR4_TimePeriod            750  ps   (DDR4-2666)
+       C0.DDR4_PhyClockRatio         4:1
+       C0.DDR4_DataWidth             32
+       C0.DDR4_DataMask              DM_NO_DBI
+       C0.DDR4_CasLatency            19
+       C0.DDR4_CasWriteLatency       14
+       C0.DDR4_ChipSelect            true
+       C0.DDR4_OutputDriverImpedenceControl  RZQ/7
+       C0.DDR4_OnDieTermination      RZQ/6
+
+  DDR4 Pinout (authoritative -- from factory MIG XDC)
+    Controls:
+       sys_clk_p  = T24      sys_clk_n = U24   (DIFF_SSTL12, shared with user PLL)
+       act_n      = Y21
+       cs_n[0]    = AE16
+       cke[0]     = AE18
+       odt[0]     = AE26
+       reset_n    = AC16
+       ba[0]      = AE17     ba[1]     = AF17
+       bg[0]      = AD16     (x16 parts: no bg[1])
+       ck_t[0]    = AA22     ck_c[0]   = AB22
+    Address [0:16]:
+       adr[0]  = AE22  adr[1]  = AF22  adr[2]  = AD23  adr[3]  = AE23
+       adr[4]  = AC22  adr[5]  = AC23  adr[6]  = AB21  adr[7]  = AC21
+       adr[8]  = AF20  adr[9]  = AD20  adr[10] = AE20  adr[11] = AC19
+       adr[12] = AD19  adr[13] = AF18  adr[14] = AF19  adr[15] = AC18
+       adr[16] = AD18
+    DQS pairs (T/C):
+       dqs[0]  = AC26/AD26   dqs[1]  = AB17/AC17
+       dqs[2]  = V21 /V22    dqs[3]  = W25 /W26
+    Data mask:
+       dm_n[0] = AE25  dm_n[1] = Y20   dm_n[2] = U19   dm_n[3] = Y22
+    Data byte 0 (Bank 64, DQ[0:7]):
+       AB25 AB26 AF24 AF25 AD24 AD25 AB24 AC24
+    Data byte 1 (Bank 64, DQ[8:15]):
+       AA19 AB19 AA20 AB20 Y17  AA17 Y18  AA18
+    Data byte 2 (Bank 65, DQ[16:23]):
+       U21  U22  T20  U20  T22  T23  W19  W20
+    Data byte 3 (Bank 65, DQ[24:31]):
+       Y25  Y26  AA24 AA25 V23  W23  V24  W24
 
   QSPI Flash:
     Chip          : MX25U51245GZ4I00 (Macronix)
-    Capacity      : 512 Mb (64 MB)
-    Voltage       : 1.8 V CMOS
-    Use           : Stores FPGA configuration bitstream (.bin/.bit) and user data
-    FPGA Bank     : Bank 65 (QSPI0_* signals)
+    Capacity      : 512 Mb = 64 MB
+    Voltage       : 1.8 V CMOS, x4 SPI
+    Usage         : Stores FPGA configuration bitstream (+ optional user data)
+    FPGA Bank     : Bank 65 (QSPI0_* signals; configured via BITSTREAM settings)
 
 
 --------------------------------------------------------------------------------
 4. CLOCK SOURCES
 --------------------------------------------------------------------------------
   Primary System Clock (POPULATED):
-    Component     : SG3225VAN  (Y2)
-    Frequency     : 200.000 MHz  differential
+    Component     : SG3225VAN 200.000000M-KEGA3  (reference Y2)
+    Frequency     : 200.000 MHz, differential
     Pins          : T24 (SYS_CLK_P) / U24 (SYS_CLK_N)
     FPGA Bank     : 65 (HP, 1.2 V)
     IOSTANDARD    : DIFF_SSTL12
-    Used for      : DDR4 reference clock, user logic clock source
+    Usage         : DDR4 reference clock AND general user logic source.
+                    There is no other populated clock in the HP-bank area.
 
   GT Reference Clock for QSFP28 (POPULATED):
-    Component     : SJT9120AI-2D3-33E15S.25000  (Y3)
-    Frequency     : 156.25 MHz  differential
+    Component     : SJT9120AI-2D3-33E15S.25000  (reference Y3)
+    Frequency     : 156.25 MHz, differential
     Pins          : V7 (GT_CLK156P25_P) / V6 (GT_CLK156P25_N)
-    FPGA Bank     : 225 (GTY reference clock input MGTREFCLK0)
-    Use           : QSFP28 100G optical transceivers
+    FPGA Bank     : 225 (GTY MGTREFCLK0)
+    Usage         : QSFP28 100G optical transceivers
 
   Reserved Single-Ended Clock (NOT POPULATED by default):
     Component     : Y4  (marked "Reserved - Not Soldered")
-    Pin           : PL_CLK  (HD bank)
-    Note          : Solder a compatible oscillator if needed for HD bank clocking
+    Pin           : PL_CLK (HD bank)
+    Note          : Populate if you need an HD-bank clock source
 
 
 --------------------------------------------------------------------------------
@@ -103,62 +173,77 @@
     Signals       : PHY1_RXCK, PHY1_RXCTL, PHY1_RXD[0:3]
                     PHY1_TXCK, PHY1_TXCTL, PHY1_TXD[0:3]
                     PHY1_MDC, PHY1_MDIO
+    [IMPORTANT]   : PHYRSTB and INTB are NOT routed to FPGA GPIO on this
+                    board -- they connect only to on-board pull-up resistors.
+                    Do not attempt to drive phy_reset / phy_int from the FPGA.
 
-  5.2 UART + JTAG (on-board programmer)
-    Chip          : FTDI FT2232HQ  (dual channel USB to UART/JTAG)
-    Connector     : USB Type-C
-    Channel A     : JTAG (download/debug)  -- max 30 Mb/s
+  5.2 UART + JTAG (on-board FT2232HQ)
+    Chip          : FTDI FT2232HQ  (dual-channel USB to UART/JTAG)
+    Connector     : USB Type-C (single cable provides both channels)
+    Channel A     : JTAG via MPSSE (download/debug)
+                    * Does NOT enumerate as /dev/ttyUSB* on Linux.
+                    * Accessible via Vivado hw_server on tcp:3121.
+                    * Max JTAG speed ~30 Mb/s.
     Channel B     : UART (serial console)
-    FPGA Bank     : 84 (HD, 3.3 V)
-    IOSTANDARD    : LVCMOS33
-    Pins          : AD13 = UART_RX,  AC14 = UART_TX
+                    * Enumerates as /dev/ttyUSB1 on Linux.
+                    * 115200 8N1 for factory images.
+    FPGA Bank     : 84 (HD, 3.3 V), IOSTANDARD LVCMOS33
+    Pins          : AD13 = uart_rx (FPGA input from FT2232 TXD)
+                    AC14 = uart_tx (FPGA output to FT2232 RXD)
 
   5.3 SD CARD (MicroSD)
-    Modes         : SPI mode and SD mode
+    Modes         : 4-bit SD mode and 1-bit SPI mode
     FPGA Bank     : 84 (HD, 3.3 V)
     IOSTANDARD    : LVCMOS33
-    Pins          : Y16=SD_CD, Y15=SD_CLK, AA15=SD_CMD
-                    AB14=SD_D0, AA14=SD_D1, AB16=SD_D2, AB15=SD_D3
-    SPI aliases   : SD_D0=MISO (has pull-up), SD_CMD=MOSI, SD_D3=NCS
-    Cards tested  : MicroSD 2.0, 8 GB - 32 GB
+    Pins          : Y16 = SD_CD   Y15 = SD_CLK   AA15 = SD_CMD
+                    AB14 = SD_D0  AA14 = SD_D1   AB16 = SD_D2  AB15 = SD_D3
+                    (SD_D0 has an on-board pull-up resistor)
+    SPI aliases   : SD_D0 = MISO     SD_CMD = MOSI     SD_D3 = NCS
+    [IMPORTANT]   : There is NO dedicated sd_reset / sd_power line routed to
+                    the FPGA. Cards tested: MicroSD 2.0, 8 - 32 GB.
 
   5.4 QSFP28 OPTICAL
     Port count    : 1x QSFP28 (accepts 100G optical module)
     GT Bank       : 225 (GTY, 4 lanes, up to 25 Gb/s per lane = 100 Gb/s)
     Ref clock     : 156.25 MHz (V7/V6, MGTREFCLK0_225)
     Control Bank  : 84 (HD, 3.3 V), IOSTANDARD LVCMOS33
-    Control pins  : INTL=Y13, LPMODE=W14, MODPRSL=AA13
-                    MODSELL=W13, RESETL=W12, SCL=AE15, SDA=AE13
-    Tested module : Intel CWDM4 100G + LC fiber (LC single-mode jumper)
+    Control pins  : INTL=Y13     LPMODE=W14    MODPRSL=AA13
+                    MODSELL=W13  RESETL=W12    SCL=AE15     SDA=AE13
+    Tested module : Intel CWDM4 100G + LC single-mode fiber jumper
 
   5.5 PCIe 3.0 x4
     Connector     : PCIe x8 slot (electrical x4)
     GT Bank       : 224 (GTY, 4 lanes)
     Lane speed    : up to 8 Gb/s per lane
-    Ref clock     : AB7 (P) / AB6 (N) -- MGTREFCLK0_224
-    Reset pin     : T19 (Bank 65, HP 1.2 V) -- LVCMOS12, active LOW
-    Power supply  : Can power board via PCIe slot (12 V) -- power button inactive
+    Ref clock     : AB7 (P) / AB6 (N)  --  MGTREFCLK0_224
+    Reset pin     : T19 (Bank 65, HP 1.2 V, LVCMOS12, active LOW)
+    Power supply  : Board can be powered via PCIe 12 V rail; when doing so
+                    the physical power button is disabled.
 
-  5.6 DDR4  (see Section 3 for specs)
-    IP required   : Xilinx MIG (Memory Interface Generator)
-    MIG settings  : Part=MT40A512M16LY-062E, 32-bit, Speed=2666
+  5.6 DDR4  (see Section 3 for full specs + MIG config + pinout)
+    IP required   : UltraScale+ DDR4 IP (not "MIG 7 Series")
+    MIG settings  : Memory part  = MT40A512M16HA-075E  (NOT -LY-075)
+                    Speed        = DDR4-2666
+                    DataWidth    = 32
 
   5.7 MIPI CSI-2 CAMERA
     Connector     : J3, 22-pin, 4-lane MIPI D-PHY (CSI-2)
-    Data lanes    : Bank 65 (HP 1.2 V) -- requires MIPI RX IP core
-    MIPI pins     : CLK_P=U19, CLK_N=V19
-                    LAN0_P=T22, LAN0_N=T23
-                    LAN1_P=U21, LAN1_N=U22
-                    LAN2_P=T20, LAN2_N=U20
-                    LAN3_P=V21, LAN3_N=V22
+    Data lanes    : Bank 65 (HP 1.2 V) -- requires MIPI RX subsystem IP
+    MIPI pins     : CLK_P = U19   CLK_N = V19
+                    LAN0_P = T22  LAN0_N = T23
+                    LAN1_P = U21  LAN1_N = U22
+                    LAN2_P = T20  LAN2_N = U20
+                    LAN3_P = V21  LAN3_N = V22
+    [CRITICAL]    : MIPI data-lane pins overlap with DDR4 Byte 2/3 DQ/DQS.
+                    This board CANNOT use MIPI and DDR4 at the same time.
     Camera ctrl   : Bank 66 (HP 1.8 V), IOSTANDARD LVCMOS18
-                    CAM_CLK=K21, CAM_RST=J21, CAM_PWDN=M21
-                    CAM_SCL=J25, CAM_SDA=J26
+                    CAM_CLK = K21   CAM_RST = J21   CAM_PWDN = M21
+                    CAM_SCL = J25   CAM_SDA = J26
     Tested camera : Zhengdian Atom ATK-MCIMX415 (IMX415, 4K60 via FH1159 board)
-    IMPORTANT (V0.2): The IMX415 camera BUG fix -- do NOT drive a clock from
-                    FPGA IO to camera; use the on-board oscillator clock only.
-                    (Resistor mod previously required is NO LONGER needed with
-                    current firmware as the bug has been fixed in software.)
+    IMX415 note   : Since V0.2 firmware, the camera uses the on-board oscillator
+                    as its clock source. Do NOT route an FPGA-generated clock
+                    to the camera; the previously required resistor mod is
+                    no longer needed.
 
   5.8 FMC HPC CONNECTOR
     Standard      : VITA 57.1 FMC HPC
@@ -166,58 +251,58 @@
     DP lanes      : 8 GTY lanes (Bank 226: DP0-3, Bank 227: DP4-7)
     GT speed      : up to 25 Gb/s per DP lane
     GT clocks     : GBTCLK0 M2C (P7/P6), GBTCLK1 M2C (K7/K6)
-    LA bank       : 66 (LA00-16, HP) + 67 (LA17-33, HP)
-    LA voltage    : 1.8 V default (VADJ1, adjustable -- see Section 7 WARNING)
+    LA banks      : 66 (LA00-16) + 67 (LA17-33), both HP
+    LA voltage    : VADJ1 (default 1.8 V, adjustable to 1.2 V; see Section 7)
     IOSTANDARD    : LVDS for differential pairs; LVCMOS18 for single-ended use
     I2C / PWRGD   : Bank 86 (HD 3.3 V) -- F10=SCL, F9=SDA, G10=PWRGD
-    Trace lengths : All FMC LA signals matched at ~2137 mil (see equal-length XLS)
+    Trace lengths : All FMC LA signals matched at ~2137 mil (< 0.3 mil tolerance)
 
-  5.9 40-PIN EXPANSION IO
-    Connector     : J1, 2.54 mm pitch, HDR2X20 (40 pins)
+  5.9 40-PIN EXPANSION IO (J1)
+    Connector     : J1, 2.54 mm pitch, HDR2X20
     Signals       : 17 differential pairs (IO1_N/P through IO17_N/P)
-    Power pins    : Pin 2 = +5 V, Pins 39/40 = +3.3 V, Pins 37/38 = GND
-    Banks         : 86 (IO1-IO6) + 87 (IO7-IO17)
+    Power pins    : Pin 2 = +5 V     Pins 39/40 = +3.3 V     Pins 37/38 = GND
+    Banks         : 86 (IO1-IO6) + 87 (IO7-IO17), both HD
     Voltage       : 3.3 V FIXED -- CANNOT be changed
-    IOSTANDARD    : LVCMOS33  (single-ended) or LVDS_25 (differential)
-    Trace lengths : All IO signals matched at 2880.464 mil
-    Compatibility : Compatible with Heijin (Hei Jin) expansion modules
+    IOSTANDARD    : LVCMOS33  (or LVDS_25 for differential)
+    Trace lengths : All IO pairs length-matched at 2880.464 mil
+    Compatibility : Works with Heijin (Hei Jin) expansion modules
 
-  5.10 USER LEDs  (x4, active LOW)
+  5.10 USER LEDs (x4, active LOW)
     Bank   : 86 (HD 3.3 V), IOSTANDARD LVCMOS33
-    Logic  : Output LOW = LED ON (green LED, driven via MMBT3904 NPN transistor)
-    LED1=H9, LED2=J9, LED3=G11, LED4=H11
-    Also:  FPGA DONE LED (white, driven by FPGA config done signal -- not user IO)
-           Power LED (green, always on when board is powered)
+    Logic  : Output LOW = LED ON (green, driven via MMBT3904 NPN transistor)
+    Pins   : LED1=H9   LED2=J9   LED3=G11   LED4=H11
+    Also   : FPGA DONE LED (white) driven by FPGA config hardware (not user IO)
+             Power LED (green) always on when board is powered
 
-  5.11 USER KEYS  (x4, active LOW)
+  5.11 USER KEYS (x4, active LOW)
     Bank   : 86 (HD 3.3 V), IOSTANDARD LVCMOS33
-    Logic  : Input LOW = key pressed (4.7 K pull-up to 3.3 V + 100 nF debounce cap)
-    KEY1=K9, KEY2=K10, KEY3=J10, KEY4=J11
-    Note   : KEY1 (K9) also used as system reset in factory demos
+    Logic  : Input LOW = key pressed (4.7 kΩ pull-up, 100 nF debounce cap)
+    Pins   : KEY1=K9  KEY2=K10  KEY3=J10  KEY4=J11
+    Note   : KEY1 (K9) is reused as sys_rst_n in most factory demos
 
   5.12 FAN
-    Type   : 2-wire fan with heatsink on FPGA -- always on, no PWM speed control
+    Type   : 2-wire fan attached to the FPGA heatsink, always on (no PWM)
     Bank   : 86 (HD 3.3 V), IOSTANDARD LVCMOS33
-    Pin    : G9 (FAN control via AO3400A N-FET + SS54 flyback diode)
+    Pin    : G9  (drives an AO3400A N-FET with SS54 flyback diode)
 
 
 --------------------------------------------------------------------------------
 6. POWER SUPPLY
 --------------------------------------------------------------------------------
   Input Voltage : 12 V DC  (acceptable range: 10 V to 14 V)
-  Input Current : 3 A minimum recommended (12V x 3A = 36W)
+  Input Current : 3 A minimum recommended (~36 W at full load)
   Connector     : Barrel jack + power button switch
-  Alt. Power    : PCIe slot 12 V (power button inactive when powered via PCIe)
-  Protection    : Overcurrent, reverse polarity, TVS overvoltage protection
+  Alt. Power    : PCIe slot 12 V (power button inactive in this mode)
+  Protection    : Overcurrent, reverse polarity, TVS overvoltage clamping
 
-  Power-On Sequence (must be followed by hardware -- automatic on this board):
+  Power-On Sequence (automatic on this board):
     VCCINT  ->  1.8 V  ->  3.3 V  ->  ADJ/MGTAVCC  ->  MGTAVCCAUX  ->  MGTAVTT
 
   Internal Rails:
     0.85 V  (35 A)  -- VCCINT (FPGA core)
     0.9  V  (6 A)   -- MGTAVTT
-    1.2  V  (6 A)   -- DDR_1V2 (DDR4 memory + FPGA HP bank 64/65)
-    1.8  V  (3 A)   -- VADJ1 (FMC + HP bank 66/67 -- default, adjustable)
+    1.2  V  (6 A)   -- DDR_1V2 (DDR4 memory + FPGA HP banks 64/65)
+    1.8  V  (3 A)   -- VADJ1 (FMC + HP bank 66/67; default, adjustable)
     1.8  V  (1.5 A) -- PL_MGTAVCCAUX / various logic rails
     1.3  V          -- MGTAVCC
     3.3  V          -- VCC_3V3 (UART, SD, LEDs, keys, HD banks 84/86/87)
@@ -225,114 +310,130 @@
 
   FMC Voltage Adjustment (VADJ1):
     Default : 1.8 V
-    Change  : Modify DCDC chip FB resistor marked "RA" on PCB
-              To set 1.2 V: replace RA with 1 K ohm resistor
+    Change  : Modify DCDC FB resistor marked "RA" on the PCB.
+              Replace RA with 1 kΩ to set VADJ1 to 1.2 V.
+    [CRITICAL]  Change RA BEFORE inserting a 1.2 V FMC card; wrong voltage
+                can damage the card.
 
 
 --------------------------------------------------------------------------------
-7. IMPORTANT WARNINGS & NOTES
+7. IMPORTANT WARNINGS
 --------------------------------------------------------------------------------
 
-  [CRITICAL] Bank 86/87 (40-PIN IO) voltage is FIXED at 3.3 V.
-             Do NOT apply voltages above 3.3 V on these pins.
+  [CRITICAL] Vivado version: use 2023.2 only. Vivado 2024.x or newer will
+             permanently lock the MX25U51245G QSPI flash chip.
 
-  [CRITICAL] HP banks (64, 65, 66, 67) operate at 1.2-1.8 V.
-             Do NOT apply 3.3 V signals to HP bank pins.
+  [CRITICAL] Banks 86/87 (40-pin IO) are FIXED at 3.3 V. Do not apply signals
+             above 3.3 V.
 
-  [CRITICAL] FMC VADJ1 defaults to 1.8 V. If connecting an FMC card that
-             requires 1.2 V, change resistor RA BEFORE inserting the card.
-             Failure to do so may damage the FMC card.
+  [CRITICAL] HP banks (64, 65, 66, 67) operate at 1.2 V (64/65) or 1.8 V (66/67).
+             Do not apply 3.3 V signals to HP-bank pins.
+
+  [CRITICAL] FMC VADJ1 default is 1.8 V. If using a 1.2 V FMC card, change
+             resistor RA BEFORE inserting the card.
 
   [CRITICAL] GTY/GT transceiver pins (PCIe, QSFP28, FMC DP) must be configured
-             via the appropriate Xilinx IP wizard (PCIe IP, GT Wizard).
-             DO NOT set PACKAGE_PIN or IOSTANDARD on GT pins manually.
+             via the appropriate Xilinx IP wizard. Do NOT set PACKAGE_PIN or
+             IOSTANDARD on GT pins manually.
 
-  [CRITICAL] DDR4 pin constraints must be generated by Xilinx MIG IP.
-             Do NOT add manual DDR4 constraints -- MIG sets all DDR IOSTANDARD,
-             drive strength, and termination properties automatically.
+  [CRITICAL] DDR4 memory part: select "MT40A512M16HA-075E" in MIG, NOT
+             "MT40A512M16LY-075". The LY-075 timing model does not match the
+             actual LY chips on this board and will fail DQS_GATE calibration.
 
-  [WARNING]  MIPI CSI-2 pins require a Xilinx MIPI RX subsystem IP.
-             Do NOT set IOSTANDARD on MIPI data lane pins manually.
+  [CRITICAL] MIPI data lanes (T20/T22/T23/U19-U22/V21/V22) OVERLAP with DDR4
+             Byte 2/3 DQ/DQS pins. A design cannot use both peripherals.
 
-  [WARNING]  MIPI camera (IMX415): Use on-board oscillator as camera clock.
-             Do NOT drive camera clock from FPGA IO pin (known hardware bug,
-             software workaround exists since V0.2 -- resistor mod not needed).
+  [WARNING]  RTL8211F PHY reset (PHYRSTB) and interrupt (INTB) are NOT wired
+             to FPGA GPIO -- they use on-board pull-ups only.
 
-  [WARNING]  LEDs are active LOW: output '0' turns LED ON.
+  [WARNING]  MIPI CSI-2 pins require the Xilinx MIPI RX subsystem IP; do not
+             set IOSTANDARD manually on MIPI lane pins.
 
-  [WARNING]  Keys are active LOW: read '0' when key is pressed.
+  [WARNING]  LEDs are active-LOW: output '0' turns a LED ON.
 
-  [INFO]     Factory QSPI Flash already contains a test bitstream.
-             To update: follow "Chapter 3 - Flash Factory Bit" in user manual.
+  [WARNING]  Keys are active-LOW: a read of '0' means the key is pressed.
 
-  [INFO]     When powering via PCIe slot, the physical power button has no effect.
+  [INFO]     Factory QSPI flash already contains a test bitstream.
 
-  [INFO]     Vivado ILA (Integrated Logic Analyzer) can be used for on-board
-             debugging via the FT2232HQ JTAG interface.
+  [INFO]     When powered via the PCIe slot, the physical power button is
+             inactive; the board is on whenever the slot supplies 12 V.
+
+  [INFO]     Vivado ILA (Integrated Logic Analyzer) works over the FT2232HQ
+             JTAG interface on Channel A.
 
 
 --------------------------------------------------------------------------------
 8. VIVADO PROJECT SETUP
 --------------------------------------------------------------------------------
   Target Part   : xcku5p-ffvb676-2-i
-  Design Flow   : RTL Project (not IP Integrator required, but supported)
-  Constraint    : Use RK_XCKU5P_F_v1.2_pinconstraint.xdc as the base XDC
-  Bitstream     : Always set BITSTREAM.GENERAL.COMPRESS TRUE
-                  and BITSTREAM.CONFIG.CONFIGRATE 63.8 for faster boot
-  IP Cores needed for full feature use:
-    - MIG 7 Series / UltraScale+ DDR4 IP  (for DDR4 memory)
-    - Xilinx PCIe IP (UltraScale+ Integrated Block for PCIe)
-    - GT Wizard (for QSFP28 / FMC DP transceiver lanes)
-    - MIPI CSI-2 Receiver Subsystem  (for camera input)
-    - Clocking Wizard (for PLL/MMCM from 200 MHz sys clock)
-  Recommended Vivado version: 2023.1  (used in all factory demo projects)
+  Design Flow   : RTL Project or IP Integrator (both supported)
+  Base XDC      : RK_XCKU5P_F_v1.2_pinconstraint.xdc (this directory)
+  Bitstream     : Always set
+                    BITSTREAM.GENERAL.COMPRESS    TRUE
+                    BITSTREAM.CONFIG.CONFIGRATE   63.8
+                    BITSTREAM.CONFIG.SPI_BUSWIDTH 4
+                    CONFIG_VOLTAGE                1.8
+                    CONFIG_MODE                   SPIx4
+                    CFGBVS                        GND
+
+  IP Cores needed for full-feature use:
+    - UltraScale+ DDR4 IP        (DDR4 memory controller)
+    - Xilinx PCIe IP             (UltraScale+ Integrated Block for PCIe)
+    - GT Wizard                  (QSFP28 / FMC DP lanes)
+    - MIPI CSI-2 Receiver        (camera input)
+    - Clocking Wizard            (user PLL/MMCM from 200 MHz sys_clk)
+
+  Recommended Vivado version: 2023.2  (factory demos shipped in 2023.1)
 
 
 --------------------------------------------------------------------------------
 9. FACTORY DEMO PROJECTS (in KU5P_DEMO.zip)
 --------------------------------------------------------------------------------
-  01_LED          : Basic LED blink demo -- good starting point
+  01_LED          : Basic LED blink -- a good first sanity check
   02_key_led      : Key input controls LED state
-  03_PLL          : Clock wizard / PLL configuration from 200 MHz input
-  04_UART         : UART loopback test via FT2232HQ
-  05_SD_card      : SD card SPI read/write test
-  06_DDR_AXI      : DDR4 memory test via AXI interface (MIG core)
+  03_PLL          : Clock wizard / PLL configuration from the 200 MHz input
+  04_UART         : UART loopback test via FT2232HQ Channel B
+  05_SD_card      : MicroSD read/write in SPI mode
+  06_DDR_AXI      : DDR4 memory test via AXI (MIG core)
+  07_Ethernet     : RGMII Ethernet loopback / ARP responder
+  08_IBERT        : QSFP28 / PCIe / FMC DP eye-diagram link tests
 
-  All demos use Vivado 2023.1 and target xcku5p-ffvb676-2-i.
-  Each demo includes: Constraint/ (XDC), Source/ (RTL), Project/ (XPR), Bin/ (bitstream)
+  All demos target xcku5p-ffvb676-2-i in Vivado 2023.1.
+  Each demo includes: Constraint/ (XDC), Source/ (RTL), Project/ (XPR),
+  Bin/ (pre-built bitstream).
 
 
 --------------------------------------------------------------------------------
-10. EQUAL-LENGTH TRACE INFORMATION (from RK-XCKU5P-F V1.2 equal-length XLS)
+10. EQUAL-LENGTH TRACE INFORMATION
 --------------------------------------------------------------------------------
-  FMC LA pairs    : All matched at ~2137.299 mil  (tolerance < 0.3 mil)
-  FMC DP lanes    : Not length-matched (variable: 1200 - 2717 mil depending on lane)
-  40-PIN IO pairs : All matched at 2880.464 mil  (exact equal length)
+  FMC LA pairs    : All matched at ~2137.299 mil (tolerance < 0.3 mil)
+  FMC DP lanes    : Not length-matched (variable: 1200 - 2717 mil)
+  40-PIN IO pairs : All matched at 2880.464 mil (exact equal length)
 
 
 --------------------------------------------------------------------------------
 11. QSFP28 GT TRANSCEIVER PIN TABLE  (Bank 225, GTY)
 --------------------------------------------------------------------------------
-  QSFP Lane  | RX_N | RX_P | TX_N | TX_P
-  -----------+------+------+------+------
-  Lane 0     |  Y1  |  Y2  |  AA4 |  AA5   (MGTYRXN0/MGTYRXP0/MGTYTXN0/MGTYTXP0)
-  Lane 1     |  V1  |  V2  |  W4  |  W5    (MGTYRXN1/MGTYRXP1/MGTYTXN1/MGTYTXP1)
-  Lane 2     |  T1  |  T2  |  U4  |  U5    (MGTYRXN2/MGTYRXP2/MGTYTXN2/MGTYTXP2)
-  Lane 3     |  P1  |  P2  |  R4  |  R5    (MGTYRXN3/MGTYRXP3/MGTYTXN3/MGTYTXP3)
-  RefClk0 N  :  V6   RefClk0 P : V7
+  Lane | RX_N | RX_P | TX_N | TX_P  |  Bundle (MGTYRXN/RXP/TXN/TXP)
+  -----+------+------+------+-------+-----------------------------
+   0   |  Y1  |  Y2  |  AA4 |  AA5  |  0_225
+   1   |  V1  |  V2  |  W4  |  W5   |  1_225
+   2   |  T1  |  T2  |  U4  |  U5   |  2_225
+   3   |  P1  |  P2  |  R4  |  R5   |  3_225
+  RefClk0: V7 (P) / V6 (N)  (156.25 MHz)
 
 
 --------------------------------------------------------------------------------
 12. PCIe GT TRANSCEIVER PIN TABLE  (Bank 224, GTY)
 --------------------------------------------------------------------------------
-  PCIe Lane  | RX_N | RX_P | TX_N | TX_P
-  -----------+------+------+------+------
-  Lane 0     | AB1  | AB2  | AC4  | AC5    (MGTYRXN3/MGTYRXP3/MGTYTXN3/MGTYTXP3)
-  Lane 1     | AD1  | AD2  | AD6  | AD7    (MGTYRXN2/MGTYRXP2/MGTYTXN2/MGTYTXP2)
-  Lane 2     | AE3  | AE4  | AE8  | AE9    (MGTYRXN1/MGTYRXP1/MGTYTXN1/MGTYTXP1)
-  Lane 3     | AF1  | AF2  | AF6  | AF7    (MGTYRXN0/MGTYRXP0/MGTYTXN0/MGTYTXP0)
-  RefClk0 N  : AB6   RefClk0 P : AB7
-  PERST_N    : T19  (Bank 65, LVCMOS12)
+  Lane | RX_N | RX_P | TX_N | TX_P  |  Bundle (MGTYRXN/RXP/TXN/TXP)
+  -----+------+------+------+-------+-----------------------------
+   0   | AB1  | AB2  | AC4  | AC5   |  3_224
+   1   | AD1  | AD2  | AD6  | AD7   |  2_224
+   2   | AE3  | AE4  | AE8  | AE9   |  1_224
+   3   | AF1  | AF2  | AF6  | AF7   |  0_224
+  RefClk0: AB7 (P) / AB6 (N)
+  PERST_N : T19  (Bank 65, LVCMOS12, active LOW)
 
 
 --------------------------------------------------------------------------------
@@ -340,15 +441,17 @@
 --------------------------------------------------------------------------------
   Bank | Type | VCCO  | Signals
   -----+------+-------+----------------------------------------------------------
-   64  |  HP  | 1.2 V | DDR4 DQ[0:31], DM[0:3], DQS[0:3] P/N
-   65  |  HP  | 1.2 V | DDR4 ADDR/CTRL, SYS_CLK P/N, MIPI lanes, PCIE_PERST_N
-   66  |  HP  | 1.8 V | ETH RGMII, FMC LA[00-16] P/N, FMC CLK0 P/N, CAM ctrl
+   64  |  HP  | 1.2 V | DDR4 DQ[0:15], DM[0:1], DQS[0:1] P/N
+   65  |  HP  | 1.2 V | DDR4 addr/ctrl/clock + DQ[16:31] + DM[2:3] + DQS[2:3],
+                      | SYS_CLK P/N, MIPI lanes (if used), PCIE_PERST_N
+   66  |  HP  | 1.8 V | Ethernet RGMII, FMC LA[00-16] P/N, FMC CLK0 P/N,
+                      | MIPI camera ctrl
    67  |  HP  | 1.8 V | FMC LA[17-33] P/N, FMC CLK1 P/N
    84  |  HD  | 3.3 V | UART RX/TX, SD card, QSFP28 control I/O
    86  |  HD  | 3.3 V | LED[1-4], KEY[1-4], FAN, FMC SCL/SDA/PWRGD, 40PIN IO1-6
    87  |  HD  | 3.3 V | 40PIN IO7-17
-  224  | GTY  |  --   | PCIe 3.0 x4 (RX/TX lanes + RefClk)
-  225  | GTY  |  --   | QSFP28 x4 (RX/TX lanes + RefClk 156.25 MHz)
+  224  | GTY  |  --   | PCIe 3.0 x4 (RX/TX + RefClk)
+  225  | GTY  |  --   | QSFP28 x4 (RX/TX + RefClk 156.25 MHz)
   226  | GTY  |  --   | FMC DP0-DP3 C2M/M2C + GBTCLK0
   227  | GTY  |  --   | FMC DP4-DP7 C2M/M2C + GBTCLK1
 

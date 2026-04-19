@@ -2,76 +2,81 @@
 # RK-XCKU5P-F V1.2 Development Board - Master Pin Constraint File
 # Board Manufacturer : RIGUKE
 # FPGA               : AMD Kintex UltraScale+  XCKU5P-2FFVB676I
-# Package            : FFVB676
-# Speed Grade        : -2I  (Industrial)
-# Vivado Version     : 2023.1 (used in factory demos)
-# Document Version   : V0.2  (2025-08-07)
+# Package            : FFVB676 (fine-pitch BGA, 676 balls)
+# Speed Grade        : -2I  (Industrial, -40 C to +100 C)
+# Vivado Version     : 2023.2 (use for this project; factory demos use 2023.1)
 #
-# Usage: Add this XDC to your Vivado project as a constraints file.
-#        Uncomment / rename only the ports your design uses.
-#        Port names here are templates - match them to your top-level HDL.
+# Sources used to build this file:
+#   - RIGUKE factory pin constraint (V0.2, 2025-08-07) for non-DDR peripherals
+#   - KU5P_DEMO/06_DDR_AXI/ddr4_0_ex/imports/example_design.xdc for DDR4
+#   - RK-XCKU5P-F V1.2 schematic (revision V1.2)
 #
-# IO Bank Summary:
-#   Bank 64  HP  1.2 V  DDR4 data  (DQ / DM / DQS)
-#   Bank 65  HP  1.2 V  DDR4 addr/ctrl, SYS_CLK diff, MIPI, PCIE_RESET
+# Usage: Add this XDC to your Vivado project as a constraints file, then
+#        comment out the blocks you do not use. Rename ports as needed to
+#        match your top-level HDL.
+#
+# ------------------------------------------------------------------------------
+# I/O Bank Summary
+# ------------------------------------------------------------------------------
+#   Bank 64  HP  1.2 V  DDR4 data  (DQ[0:15], DM/DQS for bytes 0-1)
+#   Bank 65  HP  1.2 V  DDR4 addr/ctrl/clock, DDR4 DQ[16:31] for bytes 2-3,
+#                       SYS_CLK diff, MIPI data lanes, PCIE_PERST_N
 #   Bank 66  HP  1.8 V  Gigabit Ethernet RGMII, FMC LA[00-16], MIPI camera ctrl
 #   Bank 67  HP  1.8 V  FMC LA[17-33]
-#   Bank 84  HD  3.3 V  UART, SD card, QSFP28 control signals
-#   Bank 86  HD  3.3 V  LED[1-4], KEY[1-4], FAN, FMC SCL/SDA, 40-PIN IO1-6
+#   Bank 84  HD  3.3 V  FT2232 UART, MicroSD card, QSFP28 control signals
+#   Bank 86  HD  3.3 V  LED[1-4], KEY[1-4], FAN, FMC SCL/SDA/PWRGD, 40-PIN IO1-6
 #   Bank 87  HD  3.3 V  40-PIN IO7-17
-#   Bank 224 GTY  --    PCIe 3.0 x4 transceivers  (no IOSTANDARD needed)
-#   Bank 225 GTY  --    QSFP28 x4 transceivers     (no IOSTANDARD needed)
-#   Bank 226 GTY  --    FMC DP0-DP3 transceivers   (no IOSTANDARD needed)
-#   Bank 227 GTY  --    FMC DP4-DP7 transceivers   (no IOSTANDARD needed)
+#   Bank 224 GTY  --    PCIe 3.0 x4 transceivers
+#   Bank 225 GTY  --    QSFP28 x4 transceivers
+#   Bank 226 GTY  --    FMC DP0-DP3 transceivers
+#   Bank 227 GTY  --    FMC DP4-DP7 transceivers
 #
-# WARNING: 40-PIN IO banks 86/87 are fixed at 3.3 V - DO NOT change VCCO.
-# WARNING: FMC bank 66/67 default 1.8 V (VADJ1). Change DCDC FB resistor RA
-#          to modify: 1.2 V -> change RA to 1 K ohm.
+# WARNING: 40-PIN IO banks 86/87 are FIXED at 3.3 V -- DO NOT change VCCO.
+# WARNING: HP banks 64/65 are 1.2 V and HP bank 66/67 defaults to 1.8 V (VADJ1).
+#          To switch FMC VADJ1 to 1.2 V, change DCDC FB resistor "RA" to 1 kΩ.
 # WARNING: LEDs are active-LOW (output 0 = LED on).
-# WARNING: Keys are active-LOW with pull-up (input 0 = key pressed).
+# WARNING: Keys are active-LOW with 4.7 kΩ pull-up (input 0 = key pressed).
 ################################################################################
 
 
 ##############################################################################
 # BITSTREAM CONFIGURATION
-# Compress bitstream + fast configuration rate (63.8 MHz) - from factory demos
+# Compress bitstream and use the factory-recommended 63.8 MHz SPI clock rate.
 ##############################################################################
-set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
-set_property BITSTREAM.CONFIG.CONFIGRATE 63.8 [current_design]
+set_property BITSTREAM.GENERAL.COMPRESS    TRUE   [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE   63.8   [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4      [current_design]
+set_property CONFIG_VOLTAGE                1.8    [current_design]
+set_property CONFIG_MODE                   SPIx4  [current_design]
+set_property CFGBVS                        GND    [current_design]
 
 
 ##############################################################################
-# SYSTEM CLOCK  --  200 MHz differential oscillator  (Bank 65, HP, 1.2 V)
-# Chip: SG3225VAN 200.000000M-KEGA3
-# Connector label: SYS CLK / Y2
+# SYSTEM CLOCK  (Bank 65, HP, 1.2 V)
+# 200 MHz differential oscillator, reference Y2 (SG3225VAN 200.000000M-KEGA3)
 ##############################################################################
 set_property PACKAGE_PIN T24 [get_ports sys_clk_p]
 set_property PACKAGE_PIN U24 [get_ports sys_clk_n]
 set_property IOSTANDARD DIFF_SSTL12 [get_ports sys_clk_p]
 set_property IOSTANDARD DIFF_SSTL12 [get_ports sys_clk_n]
 
-# Timing constraint template - adjust frequency to match your PLL output
 create_clock -period 5.000 -name sys_clk [get_ports sys_clk_p]
 
-# NOTE: A second single-ended clock pad (PL_CLK) exists on the board but is
-#       NOT populated by default (marked "Reserved - not soldered").
-#       If populated it connects to an HD-bank pad.
+# NOTE: A reserved single-ended clock pad (PL_CLK, reference Y4) is not soldered
+#       by default. It connects to an HD-bank pad if populated.
 
 
 ##############################################################################
-# SYSTEM RESET  (Bank 86, HD, 3.3 V  -- active LOW)
-# KEY1 is used as system reset in most factory demos
+# SYSTEM RESET  (Bank 86, HD, 3.3 V  --  active LOW)
+# KEY1 is reused as system reset in most factory demos.
 ##############################################################################
 set_property PACKAGE_PIN K9  [get_ports sys_rst_n]
 set_property IOSTANDARD LVCMOS33 [get_ports sys_rst_n]
 
 
 ##############################################################################
-# USER KEYS  (Bank 86, HD, 3.3 V  -- active LOW, 4.7 K pull-up)
-# KEY1 = K9  (also used as reset in most demos)
-# KEY2 = K10
-# KEY3 = J10
-# KEY4 = J11
+# USER KEYS  (Bank 86, HD, 3.3 V  --  active LOW, 4.7 kΩ pull-up + 100 nF debounce)
+# KEY1 = K9   KEY2 = K10   KEY3 = J10   KEY4 = J11
 ##############################################################################
 set_property PACKAGE_PIN K9  [get_ports {key[0]}]
 set_property PACKAGE_PIN K10 [get_ports {key[1]}]
@@ -79,12 +84,11 @@ set_property PACKAGE_PIN J10 [get_ports {key[2]}]
 set_property PACKAGE_PIN J11 [get_ports {key[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {key[*]}]
 
-# NOTE: KEY1 (K9) is shared with sys_rst_n above.
-#       Use only one definition per project.
+# NOTE: K9 is shared with sys_rst_n above. Use only one definition per project.
 
 
 ##############################################################################
-# USER LEDs  (Bank 86, HD, 3.3 V  -- active LOW, drive through MMBT3904)
+# USER LEDs  (Bank 86, HD, 3.3 V  --  active LOW, driven via MMBT3904 NPN)
 # LED1 = H9   LED2 = J9   LED3 = G11   LED4 = H11
 ##############################################################################
 set_property PACKAGE_PIN H9  [get_ports {led[0]}]
@@ -95,22 +99,16 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[*]}]
 
 
 ##############################################################################
-# FAN  (Bank 86, HD, 3.3 V  -- 2-wire fan, no PWM speed control)
+# FAN  (Bank 86, HD, 3.3 V  --  2-wire fan, no PWM speed control)
 ##############################################################################
 set_property PACKAGE_PIN G9  [get_ports fan_ctrl]
 set_property IOSTANDARD LVCMOS33 [get_ports fan_ctrl]
 
 
 ##############################################################################
-# FPGA DONE LED indicator is driven by FPGA configuration hardware
-# (not a user IO pin; shown here for reference only)
-##############################################################################
-
-
-##############################################################################
 # UART via FT2232HQ  (Bank 84, HD, 3.3 V)
-# FT2232HQ provides one JTAG + one UART channel over a single USB Type-C cable
-# JTAG download speed: up to 30 Mb/s
+# FT2232HQ provides JTAG (Channel A, MPSSE) and UART (Channel B, VCP) on the
+# same USB Type-C cable. Channel A does NOT enumerate as /dev/ttyUSB*.
 ##############################################################################
 set_property PACKAGE_PIN AD13 [get_ports uart_rx]
 set_property PACKAGE_PIN AC14 [get_ports uart_tx]
@@ -119,9 +117,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports uart_tx]
 
 
 ##############################################################################
-# SD CARD  (MicroSD, Bank 84, HD, 3.3 V)
-# Supports SPI mode and SD mode
-# sd_miso has an on-board PULLUP resistor
+# MicroSD CARD  (Bank 84, HD, 3.3 V)
+# Supports 4-bit SD mode and SPI mode. sd_d0 has an on-board pull-up.
 ##############################################################################
 set_property PACKAGE_PIN Y16  [get_ports sd_cd]
 set_property PACKAGE_PIN Y15  [get_ports sd_clk]
@@ -138,18 +135,22 @@ set_property IOSTANDARD LVCMOS33 [get_ports sd_d0]
 set_property IOSTANDARD LVCMOS33 [get_ports sd_d1]
 set_property IOSTANDARD LVCMOS33 [get_ports sd_d2]
 set_property IOSTANDARD LVCMOS33 [get_ports sd_d3]
-set_property PULLUP true [get_ports sd_d0]
+set_property PULLUP true         [get_ports sd_d0]
 
-# SPI mode aliases (same physical pins):
-# sd_miso = sd_d0  (AB14)
-# sd_mosi = sd_cmd (AA15)
-# sd_ncs  = sd_d3  (AB15)
+# SPI-mode aliases (same physical pins):
+#   sd_miso = sd_d0  (AB14)   -- has pull-up
+#   sd_mosi = sd_cmd (AA15)
+#   sd_ncs  = sd_d3  (AB15)
+#
+# NOTE: The RTL8211F PHY's PHYRSTB/INTB and any sd_reset / sd_power signals
+#       are NOT routed to FPGA GPIO on this board. PHY reset is handled by the
+#       board power-on reset circuit.
 
 
 ##############################################################################
 # GIGABIT ETHERNET  (Bank 66, HP, 1.8 V)
-# PHY: Realtek RTL8211F-CG  (10/100/1000 Mbps, RGMII interface)
-# Default board IP in factory test image: 192.168.1.10
+# PHY: Realtek RTL8211F-CG  (10/100/1000 Mbps, RGMII)
+# Factory default board IP: 192.168.1.10
 ##############################################################################
 set_property PACKAGE_PIN K22 [get_ports eth_rxck]
 set_property PACKAGE_PIN K23 [get_ports eth_rxctl]
@@ -177,21 +178,21 @@ set_property IOSTANDARD LVCMOS18 [get_ports {eth_txd[*]}]
 set_property IOSTANDARD LVCMOS18 [get_ports eth_mdc]
 set_property IOSTANDARD LVCMOS18 [get_ports eth_mdio]
 
+# NOTE: RTL8211F PHYRSTB and INTB pins are tied to board-level pull-ups only;
+#       they are NOT routed to FPGA I/O. Do not attempt to constrain them.
+
 
 ##############################################################################
-# MIPI CSI-2 Camera Interface  (Data lanes: Bank 65, HP, 1.2 V)
-# (Camera control signals: Bank 66, HP, 1.8 V)
-# 4-lane MIPI CSI-2 D-PHY connector (J3, 22-pin)
-# Compatible with Zhengdian Atom IMX415 camera module (4K60 via FH1159 card)
+# MIPI CSI-2 Camera Interface
+# Data lanes: Bank 65 (HP 1.2 V)  --  require Xilinx MIPI RX subsystem IP
+# Camera control: Bank 66 (HP 1.8 V)  --  LVCMOS18
 #
-# NOTE: MIPI D-PHY differential pairs require a MIPI RX IP core.
-#       IOSTANDARD is set automatically by the Xilinx MIPI IP.
-#       Pins listed here for reference / IO planning only.
-#
-# NOTE (V0.2 update): Use the on-board oscillator clock to IMX415 camera.
-#       DO NOT output FPGA-generated clock to camera IIC - causes anomaly.
+# NOTE: MIPI lane pins are commented out -- they must be configured via the
+#       MIPI IP wizard, which sets IOSTANDARD automatically.
+# NOTE (V0.2 update): Use the on-board oscillator as the IMX415 camera clock.
+#       DO NOT drive an FPGA-generated clock to the camera (known hardware bug).
 ##############################################################################
-# -- MIPI data/clock lanes (differential, Bank 65, HP 1.2 V)
+# -- MIPI data/clock lanes (commented; configure via MIPI IP)
 # set_property PACKAGE_PIN U19 [get_ports mipi_clk_p]
 # set_property PACKAGE_PIN V19 [get_ports mipi_clk_n]
 # set_property PACKAGE_PIN T22 [get_ports {mipi_data_p[0]}]
@@ -202,8 +203,12 @@ set_property IOSTANDARD LVCMOS18 [get_ports eth_mdio]
 # set_property PACKAGE_PIN U20 [get_ports {mipi_data_n[2]}]
 # set_property PACKAGE_PIN V21 [get_ports {mipi_data_p[3]}]
 # set_property PACKAGE_PIN V22 [get_ports {mipi_data_n[3]}]
+#
+# WARNING: Most of the MIPI data-lane pins above (T20/T22/T23/U19/U20/U21/U22
+#          /V21/V22) overlap with DDR4 Byte 2/3 DQ/DQS. Using MIPI and DDR4
+#          simultaneously is NOT possible on this board.
 
-# -- Camera control signals (single-ended, Bank 66, HP 1.8 V)
+# -- Camera control signals (Bank 66, LVCMOS18)
 set_property PACKAGE_PIN K21 [get_ports cam_clk]
 set_property PACKAGE_PIN J21 [get_ports cam_rst]
 set_property PACKAGE_PIN M21 [get_ports cam_pwdn]
@@ -217,16 +222,11 @@ set_property IOSTANDARD LVCMOS18 [get_ports cam_sda]
 
 
 ##############################################################################
-# QSFP28  (Bank 225, GTY transceivers  +  Bank 84 control, HD, 3.3 V)
-# 1x QSFP28 port -- supports 100G optical module
-# Each TX/RX lane: up to 25 Gb/s
-# Reference clock: 156.25 MHz differential (GT_CLK156P25, Bank 225)
-#
-# NOTE: GTY transceiver pins (RX/TX data and reference clock) are configured
-#       through the GT Wizard IP -- do NOT add PACKAGE_PIN / IOSTANDARD here.
-# Reference clock pins:  V7 (P) / V6 (N) -- connect to MGTREFCLK0_225
+# QSFP28  (GTY Bank 225 + Bank 84 control signals, HD 3.3 V)
+# 1x QSFP28 port, up to 25 Gb/s per lane, 100 Gb/s aggregate.
+# Reference clock: 156.25 MHz differential (GT_CLK156P25, MGTREFCLK0_225)
 ##############################################################################
-# -- QSFP28 control signals  (Bank 84, HD, 3.3 V)
+# QSFP control signals (Bank 84, LVCMOS33)
 set_property PACKAGE_PIN Y13  [get_ports qsfp_intl]
 set_property PACKAGE_PIN W14  [get_ports qsfp_lpmode]
 set_property PACKAGE_PIN AA13 [get_ports qsfp_modprsl]
@@ -242,131 +242,153 @@ set_property IOSTANDARD LVCMOS33 [get_ports qsfp_resetl]
 set_property IOSTANDARD LVCMOS33 [get_ports qsfp_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports qsfp_sda]
 
-# -- GTY transceiver pin reference (Bank 225, no IOSTANDARD required)
-# QSFP Lane 0:  RX Y2/Y1   TX AA5/AA4   (MGTYRXP0_225 / MGTYTXP0_225)
-# QSFP Lane 1:  RX V2/V1   TX W5/W4
-# QSFP Lane 2:  RX T2/T1   TX U5/U4
-# QSFP Lane 3:  RX P2/P1   TX R5/R4
-# GT RefClk 0P: V7   GT RefClk 0N: V6   (156.25 MHz)
+# QSFP GTY transceiver pin reference (configured via GT Wizard, no IOSTANDARD)
+#   Lane 0:  RX Y2/Y1     TX AA5/AA4   (MGTYRXP0_225 / MGTYTXP0_225)
+#   Lane 1:  RX V2/V1     TX W5/W4
+#   Lane 2:  RX T2/T1     TX U5/U4
+#   Lane 3:  RX P2/P1     TX R5/R4
+#   RefClk0: V7 (P) / V6 (N)
 
 
 ##############################################################################
-# PCIe 3.0 x4  (Bank 224, GTY transceivers  +  Bank 65 reset)
-# Physical connector: PCIe x8 form factor (x4 electrical)
-# Per-lane bandwidth: up to 8 Gb/s
-#
-# NOTE: GTY transceiver data pins are configured via PCIe IP -- no IOSTANDARD.
-# Reference clock pins: AB7 (P) / AB6 (N) -- connect to MGTREFCLK0_224
+# PCIe 3.0 x4  (GTY Bank 224 + Bank 65 reset)
+# Physical x8 slot, electrical x4. Up to 8 Gb/s per lane.
+# Reference clock: AB7 (P) / AB6 (N), MGTREFCLK0_224
 ##############################################################################
-# -- PCIe reset (active LOW, Bank 65, HP, 1.2 V)
+# PCIe reset (Bank 65, HP 1.2 V, active LOW)
 set_property PACKAGE_PIN T19 [get_ports pcie_perst_n]
 set_property IOSTANDARD LVCMOS12 [get_ports pcie_perst_n]
 
-# -- GTY transceiver pin reference (Bank 224, no IOSTANDARD required)
-# PCIe Lane 0:  RX AB2/AB1   TX AC5/AC4
-# PCIe Lane 1:  RX AD2/AD1   TX AD7/AD6
-# PCIe Lane 2:  RX AE4/AE3   TX AE9/AE8
-# PCIe Lane 3:  RX AF2/AF1   TX AF7/AF6
-# GT RefClk 0P: AB7   GT RefClk 0N: AB6
+# PCIe GTY transceiver pin reference (configured via PCIe IP, no IOSTANDARD)
+#   Lane 0:  RX AB2/AB1   TX AC5/AC4
+#   Lane 1:  RX AD2/AD1   TX AD7/AD6
+#   Lane 2:  RX AE4/AE3   TX AE9/AE8
+#   Lane 3:  RX AF2/AF1   TX AF7/AF6
+#   RefClk0: AB7 (P) / AB6 (N)
 
 
 ##############################################################################
-# DDR4 SDRAM  (Bank 64 + 65, HP, 1.2 V)
-# Two chips: Micron MT40A512M16LY-062E  (1 GB each, 32-bit bus, 2 GB total)
-# Interface: HP bank, 32-bit data width
-# Max speed: 2666 Mb/s
+# DDR4 SDRAM  (Banks 64 + 65, HP, 1.2 V)
+# Two chips: Micron MT40A512M16LY-062E
+#   -  512 Mrows × 16-bit × 2 chips = 2 GB total, 32-bit bus
+#   -  Speed grade -062E = DDR4-3200 capable; run at DDR4-2666 (750 ps, CL19)
+#   -  x16 parts have ONE bank group line only (BG[0]); no BG[1].
 #
-# IMPORTANT: These pins are managed by the Xilinx MIG IP core.
-#            DO NOT add manual constraints -- let MIG generate the XDC.
-#            Pin locations are listed here for IO planning / reference only.
-##############################################################################
-# Address / Control  (Bank 65)
-# set_property PACKAGE_PIN Y22  [get_ports {ddr4_addr[0]}]   ; DDR4_A0
-# set_property PACKAGE_PIN Y25  [get_ports {ddr4_addr[1]}]   ; DDR4_A1
-# set_property PACKAGE_PIN W23  [get_ports {ddr4_addr[2]}]   ; DDR4_A2
-# set_property PACKAGE_PIN V26  [get_ports {ddr4_addr[3]}]   ; DDR4_A3
-# set_property PACKAGE_PIN R26  [get_ports {ddr4_addr[4]}]   ; DDR4_A4
-# set_property PACKAGE_PIN U26  [get_ports {ddr4_addr[5]}]   ; DDR4_A5
-# set_property PACKAGE_PIN R21  [get_ports {ddr4_addr[6]}]   ; DDR4_A6
-# set_property PACKAGE_PIN W25  [get_ports {ddr4_addr[7]}]   ; DDR4_A7
-# set_property PACKAGE_PIN R20  [get_ports {ddr4_addr[8]}]   ; DDR4_A8
-# set_property PACKAGE_PIN Y26  [get_ports {ddr4_addr[9]}]   ; DDR4_A9
-# set_property PACKAGE_PIN R25  [get_ports {ddr4_addr[10]}]  ; DDR4_A10
-# set_property PACKAGE_PIN V23  [get_ports {ddr4_addr[11]}]  ; DDR4_A11
-# set_property PACKAGE_PIN AA24 [get_ports {ddr4_addr[12]}]  ; DDR4_A12
-# set_property PACKAGE_PIN W26  [get_ports {ddr4_addr[13]}]  ; DDR4_A13
-# set_property PACKAGE_PIN AA25 [get_ports ddr4_cas_b]       ; DDR4_CAS_B
-# set_property PACKAGE_PIN T25  [get_ports ddr4_ras_b]       ; DDR4_RAS_B
-# set_property PACKAGE_PIN P23  [get_ports ddr4_we_b]        ; DDR4_WE_B
-# set_property PACKAGE_PIN P24  [get_ports ddr4_act_n]       ; DDR4_ACT_N
-# set_property PACKAGE_PIN U25  [get_ports ddr4_alert_n]     ; DDR4_ALERT_N
-# set_property PACKAGE_PIN P21  [get_ports {ddr4_ba[0]}]     ; DDR4_BA0
-# set_property PACKAGE_PIN P26  [get_ports {ddr4_ba[1]}]     ; DDR4_BA1
-# set_property PACKAGE_PIN R22  [get_ports {ddr4_bg[0]}]     ; DDR4_BG0
-# set_property PACKAGE_PIN P20  [get_ports {ddr4_cke[0]}]    ; DDR4_CKE
-# set_property PACKAGE_PIN V24  [get_ports {ddr4_ck_t[0]}]   ; DDR4_CLK_P
-# set_property PACKAGE_PIN W24  [get_ports {ddr4_ck_c[0]}]   ; DDR4_CLK_N
-# set_property PACKAGE_PIN P25  [get_ports {ddr4_cs_n[0]}]   ; DDR4_CS_N
-# set_property PACKAGE_PIN R23  [get_ports {ddr4_odt[0]}]    ; DDR4_ODT
-# set_property PACKAGE_PIN Y23  [get_ports ddr4_parity]      ; DDR4_PARITY
-# set_property PACKAGE_PIN P19  [get_ports ddr4_reset_n]     ; DDR4_RESET_N
+# FACTORY-VERIFIED pinout (from KU5P_DEMO/06_DDR_AXI/ddr4_0_ex/imports/
+# example_design.xdc). DQs split across Bank 64 (bytes 0/1) and Bank 65
+# (bytes 2/3). Reset signal at AC16, not P19 (earlier reference material
+# was stale/aspirational).
 #
-# Data (Bank 64)
-# set_property PACKAGE_PIN AE25 [get_ports {ddr4_dm_n[0]}]   ; DDR4_DM0
-# set_property PACKAGE_PIN AE22 [get_ports {ddr4_dm_n[1]}]   ; DDR4_DM1
-# set_property PACKAGE_PIN AD20 [get_ports {ddr4_dm_n[2]}]   ; DDR4_DM2
-# set_property PACKAGE_PIN Y20  [get_ports {ddr4_dm_n[3]}]   ; DDR4_DM3
-# set_property PACKAGE_PIN AC26 [get_ports {ddr4_dqs_t[0]}]  ; DDR4_DQS0_P
-# set_property PACKAGE_PIN AD26 [get_ports {ddr4_dqs_c[0]}]  ; DDR4_DQS0_N
-# set_property PACKAGE_PIN AA22 [get_ports {ddr4_dqs_t[1]}]  ; DDR4_DQS1_P
-# set_property PACKAGE_PIN AB22 [get_ports {ddr4_dqs_c[1]}]  ; DDR4_DQS1_N
-# set_property PACKAGE_PIN AC18 [get_ports {ddr4_dqs_t[2]}]  ; DDR4_DQS2_P
-# set_property PACKAGE_PIN AD18 [get_ports {ddr4_dqs_c[2]}]  ; DDR4_DQS2_N
-# set_property PACKAGE_PIN AB17 [get_ports {ddr4_dqs_t[3]}]  ; DDR4_DQS3_P
-# set_property PACKAGE_PIN AC17 [get_ports {ddr4_dqs_c[3]}]  ; DDR4_DQS3_N
-# set_property PACKAGE_PIN AF24 [get_ports {ddr4_dq[0]}]
-# set_property PACKAGE_PIN AF25 [get_ports {ddr4_dq[1]}]
-# set_property PACKAGE_PIN AD24 [get_ports {ddr4_dq[2]}]
-# set_property PACKAGE_PIN AB26 [get_ports {ddr4_dq[3]}]
-# set_property PACKAGE_PIN AC24 [get_ports {ddr4_dq[4]}]
-# set_property PACKAGE_PIN AB25 [get_ports {ddr4_dq[5]}]
-# set_property PACKAGE_PIN AD25 [get_ports {ddr4_dq[6]}]
-# set_property PACKAGE_PIN AB24 [get_ports {ddr4_dq[7]}]
-# set_property PACKAGE_PIN AC21 [get_ports {ddr4_dq[8]}]
-# set_property PACKAGE_PIN AD23 [get_ports {ddr4_dq[9]}]
-# set_property PACKAGE_PIN AD21 [get_ports {ddr4_dq[10]}]
-# set_property PACKAGE_PIN AC22 [get_ports {ddr4_dq[11]}]
-# set_property PACKAGE_PIN AB21 [get_ports {ddr4_dq[12]}]
-# set_property PACKAGE_PIN AE23 [get_ports {ddr4_dq[13]}]
-# set_property PACKAGE_PIN AE21 [get_ports {ddr4_dq[14]}]
-# set_property PACKAGE_PIN AC23 [get_ports {ddr4_dq[15]}]
-# set_property PACKAGE_PIN AE16 [get_ports {ddr4_dq[16]}]
-# set_property PACKAGE_PIN AD19 [get_ports {ddr4_dq[17]}]
-# set_property PACKAGE_PIN AD16 [get_ports {ddr4_dq[18]}]
-# set_property PACKAGE_PIN AF17 [get_ports {ddr4_dq[19]}]
-# set_property PACKAGE_PIN AC19 [get_ports {ddr4_dq[20]}]
-# set_property PACKAGE_PIN AF19 [get_ports {ddr4_dq[21]}]
-# set_property PACKAGE_PIN AF18 [get_ports {ddr4_dq[22]}]
-# set_property PACKAGE_PIN AE17 [get_ports {ddr4_dq[23]}]
-# set_property PACKAGE_PIN AA20 [get_ports {ddr4_dq[24]}]
-# set_property PACKAGE_PIN AA18 [get_ports {ddr4_dq[25]}]
-# set_property PACKAGE_PIN AA19 [get_ports {ddr4_dq[26]}]
-# set_property PACKAGE_PIN Y18  [get_ports {ddr4_dq[27]}]
-# set_property PACKAGE_PIN AB20 [get_ports {ddr4_dq[28]}]
-# set_property PACKAGE_PIN Y17  [get_ports {ddr4_dq[29]}]
-# set_property PACKAGE_PIN AB19 [get_ports {ddr4_dq[30]}]
-# set_property PACKAGE_PIN AA17 [get_ports {ddr4_dq[31]}]
+# MIG IP CONFIGURATION:
+#   C0.DDR4_MemoryPart = MT40A512M16HA-075E   -- NOT "-LY-075"; the HA silicon
+#                                                timing set matches the LY chips
+#                                                on this board at DDR4-2666.
+#   C0.DDR4_InputClockPeriod = 5000 (200 MHz input)
+#   C0.DDR4_TimePeriod       = 750 (DDR4-2666)
+#   C0.DDR4_DataWidth        = 32
+#   C0.DDR4_CasLatency       = 19
+#   C0.DDR4_CasWriteLatency  = 14
+#   C0.DDR4_PhyClockRatio    = 4:1
+#   C0.DDR4_DataMask         = DM_NO_DBI
+#   C0.DDR4_OutputDriverImpedenceControl = RZQ/7
+#   C0.DDR4_OnDieTermination = RZQ/6
+#
+# The pin assignments below can be let MIG auto-generate, OR supplied explicitly
+# (uncomment to use). MIG uses the exact same pinout either way because of the
+# byte-group constraints imposed by the UltraScale+ architecture.
+##############################################################################
+# -- Address [0:16], Bank 65
+# set_property PACKAGE_PIN AE22 [get_ports {ddr4_adr[0]}]
+# set_property PACKAGE_PIN AF22 [get_ports {ddr4_adr[1]}]
+# set_property PACKAGE_PIN AD23 [get_ports {ddr4_adr[2]}]
+# set_property PACKAGE_PIN AE23 [get_ports {ddr4_adr[3]}]
+# set_property PACKAGE_PIN AC22 [get_ports {ddr4_adr[4]}]
+# set_property PACKAGE_PIN AC23 [get_ports {ddr4_adr[5]}]
+# set_property PACKAGE_PIN AB21 [get_ports {ddr4_adr[6]}]
+# set_property PACKAGE_PIN AC21 [get_ports {ddr4_adr[7]}]
+# set_property PACKAGE_PIN AF20 [get_ports {ddr4_adr[8]}]
+# set_property PACKAGE_PIN AD20 [get_ports {ddr4_adr[9]}]
+# set_property PACKAGE_PIN AE20 [get_ports {ddr4_adr[10]}]
+# set_property PACKAGE_PIN AC19 [get_ports {ddr4_adr[11]}]
+# set_property PACKAGE_PIN AD19 [get_ports {ddr4_adr[12]}]
+# set_property PACKAGE_PIN AF18 [get_ports {ddr4_adr[13]}]
+# set_property PACKAGE_PIN AF19 [get_ports {ddr4_adr[14]}]
+# set_property PACKAGE_PIN AC18 [get_ports {ddr4_adr[15]}]
+# set_property PACKAGE_PIN AD18 [get_ports {ddr4_adr[16]}]
+# -- Control
+# set_property PACKAGE_PIN Y21  [get_ports ddr4_act_n]
+# set_property PACKAGE_PIN AE16 [get_ports {ddr4_cs_n[0]}]
+# set_property PACKAGE_PIN AE18 [get_ports {ddr4_cke[0]}]
+# set_property PACKAGE_PIN AE26 [get_ports {ddr4_odt[0]}]
+# set_property PACKAGE_PIN AC16 [get_ports ddr4_reset_n]
+# -- Bank address / group (x16: BG has 1 bit)
+# set_property PACKAGE_PIN AE17 [get_ports {ddr4_ba[0]}]
+# set_property PACKAGE_PIN AF17 [get_ports {ddr4_ba[1]}]
+# set_property PACKAGE_PIN AD16 [get_ports {ddr4_bg[0]}]
+# -- Memory clock
+# set_property PACKAGE_PIN AA22 [get_ports {ddr4_ck_t[0]}]
+# set_property PACKAGE_PIN AB22 [get_ports {ddr4_ck_c[0]}]
+# -- DQS pairs
+# set_property PACKAGE_PIN AC26 [get_ports {ddr4_dqs_t[0]}]
+# set_property PACKAGE_PIN AD26 [get_ports {ddr4_dqs_c[0]}]
+# set_property PACKAGE_PIN AB17 [get_ports {ddr4_dqs_t[1]}]
+# set_property PACKAGE_PIN AC17 [get_ports {ddr4_dqs_c[1]}]
+# set_property PACKAGE_PIN V21  [get_ports {ddr4_dqs_t[2]}]
+# set_property PACKAGE_PIN V22  [get_ports {ddr4_dqs_c[2]}]
+# set_property PACKAGE_PIN W25  [get_ports {ddr4_dqs_t[3]}]
+# set_property PACKAGE_PIN W26  [get_ports {ddr4_dqs_c[3]}]
+# -- Data mask (DM_NO_DBI mode)
+# set_property PACKAGE_PIN AE25 [get_ports {ddr4_dm_n[0]}]
+# set_property PACKAGE_PIN Y20  [get_ports {ddr4_dm_n[1]}]
+# set_property PACKAGE_PIN U19  [get_ports {ddr4_dm_n[2]}]
+# set_property PACKAGE_PIN Y22  [get_ports {ddr4_dm_n[3]}]
+# -- Data byte 0 (Bank 64)
+# set_property PACKAGE_PIN AB25 [get_ports {ddr4_dq[0]}]
+# set_property PACKAGE_PIN AB26 [get_ports {ddr4_dq[1]}]
+# set_property PACKAGE_PIN AF24 [get_ports {ddr4_dq[2]}]
+# set_property PACKAGE_PIN AF25 [get_ports {ddr4_dq[3]}]
+# set_property PACKAGE_PIN AD24 [get_ports {ddr4_dq[4]}]
+# set_property PACKAGE_PIN AD25 [get_ports {ddr4_dq[5]}]
+# set_property PACKAGE_PIN AB24 [get_ports {ddr4_dq[6]}]
+# set_property PACKAGE_PIN AC24 [get_ports {ddr4_dq[7]}]
+# -- Data byte 1 (Bank 64)
+# set_property PACKAGE_PIN AA19 [get_ports {ddr4_dq[8]}]
+# set_property PACKAGE_PIN AB19 [get_ports {ddr4_dq[9]}]
+# set_property PACKAGE_PIN AA20 [get_ports {ddr4_dq[10]}]
+# set_property PACKAGE_PIN AB20 [get_ports {ddr4_dq[11]}]
+# set_property PACKAGE_PIN Y17  [get_ports {ddr4_dq[12]}]
+# set_property PACKAGE_PIN AA17 [get_ports {ddr4_dq[13]}]
+# set_property PACKAGE_PIN Y18  [get_ports {ddr4_dq[14]}]
+# set_property PACKAGE_PIN AA18 [get_ports {ddr4_dq[15]}]
+# -- Data byte 2 (Bank 65)
+# set_property PACKAGE_PIN U21  [get_ports {ddr4_dq[16]}]
+# set_property PACKAGE_PIN U22  [get_ports {ddr4_dq[17]}]
+# set_property PACKAGE_PIN T20  [get_ports {ddr4_dq[18]}]
+# set_property PACKAGE_PIN U20  [get_ports {ddr4_dq[19]}]
+# set_property PACKAGE_PIN T22  [get_ports {ddr4_dq[20]}]
+# set_property PACKAGE_PIN T23  [get_ports {ddr4_dq[21]}]
+# set_property PACKAGE_PIN W19  [get_ports {ddr4_dq[22]}]
+# set_property PACKAGE_PIN W20  [get_ports {ddr4_dq[23]}]
+# -- Data byte 3 (Bank 65)
+# set_property PACKAGE_PIN Y25  [get_ports {ddr4_dq[24]}]
+# set_property PACKAGE_PIN Y26  [get_ports {ddr4_dq[25]}]
+# set_property PACKAGE_PIN AA24 [get_ports {ddr4_dq[26]}]
+# set_property PACKAGE_PIN AA25 [get_ports {ddr4_dq[27]}]
+# set_property PACKAGE_PIN V23  [get_ports {ddr4_dq[28]}]
+# set_property PACKAGE_PIN W23  [get_ports {ddr4_dq[29]}]
+# set_property PACKAGE_PIN V24  [get_ports {ddr4_dq[30]}]
+# set_property PACKAGE_PIN W24  [get_ports {ddr4_dq[31]}]
 
 
 ##############################################################################
-# FMC HPC CONNECTOR  (LA pairs: Bank 66/67, HP, 1.8 V default; COM: Bank 86)
+# FMC HPC CONNECTOR  (LA pairs: Banks 66/67, HP 1.8 V default; COM: Bank 86)
 # 34 differential LA pairs + 8 GTY DP lanes + I2C + power good
-# GTY lanes: Bank 226 (DP0-3) and Bank 227 (DP4-7), up to 25 Gb/s each
+# GTY lanes: Bank 226 (DP0-3) / Bank 227 (DP4-7), up to 25 Gb/s each.
 # Reference clocks:
-#   GBTCLK0 M2C: P7 (P) / P6 (N)  -- Bank 226 MGTREFCLK0
-#   GBTCLK1 M2C: K7 (P) / K6 (N)  -- Bank 227 MGTREFCLK0
+#   GBTCLK0 M2C: P7 (P) / P6 (N)  --  Bank 226 MGTREFCLK0
+#   GBTCLK1 M2C: K7 (P) / K6 (N)  --  Bank 227 MGTREFCLK0
 ##############################################################################
-# -- Clock pairs  (Bank 66, HP, 1.8 V)
+# Clock pairs (Bank 66, LVDS)
 set_property PACKAGE_PIN H23 [get_ports fmc_clk0_p]
 set_property PACKAGE_PIN H24 [get_ports fmc_clk0_n]
 set_property PACKAGE_PIN B19 [get_ports fmc_clk1_p]
@@ -376,7 +398,7 @@ set_property IOSTANDARD LVDS [get_ports fmc_clk0_n]
 set_property IOSTANDARD LVDS [get_ports fmc_clk1_p]
 set_property IOSTANDARD LVDS [get_ports fmc_clk1_n]
 
-# -- LA pairs  (Bank 66, HP, 1.8 V  for LA00-LA16)
+# LA pairs (Bank 66) -- LA00-LA16
 set_property PACKAGE_PIN G24 [get_ports fmc_la00_cc_p]
 set_property PACKAGE_PIN G25 [get_ports fmc_la00_cc_n]
 set_property PACKAGE_PIN J23 [get_ports fmc_la01_cc_p]
@@ -412,42 +434,7 @@ set_property PACKAGE_PIN H19 [get_ports fmc_la15_n]
 set_property PACKAGE_PIN E21 [get_ports fmc_la16_p]
 set_property PACKAGE_PIN D21 [get_ports fmc_la16_n]
 
-set_property IOSTANDARD LVDS [get_ports fmc_la00_cc_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la00_cc_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la01_cc_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la01_cc_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la02_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la02_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la03_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la03_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la04_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la04_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la05_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la05_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la06_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la06_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la07_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la07_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la08_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la08_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la09_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la09_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la10_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la10_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la11_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la11_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la12_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la12_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la13_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la13_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la14_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la14_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la15_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la15_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la16_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la16_n]
-
-# -- LA pairs  (Bank 67, HP, 1.8 V  for LA17-LA33)
+# LA pairs (Bank 67) -- LA17-LA33
 set_property PACKAGE_PIN C18 [get_ports fmc_la17_cc_p]
 set_property PACKAGE_PIN C19 [get_ports fmc_la17_cc_n]
 set_property PACKAGE_PIN D19 [get_ports fmc_la18_cc_p]
@@ -483,42 +470,10 @@ set_property PACKAGE_PIN A15 [get_ports fmc_la32_n]
 set_property PACKAGE_PIN E15 [get_ports fmc_la33_p]
 set_property PACKAGE_PIN D15 [get_ports fmc_la33_n]
 
-set_property IOSTANDARD LVDS [get_ports fmc_la17_cc_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la17_cc_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la18_cc_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la18_cc_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la19_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la19_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la20_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la20_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la21_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la21_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la22_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la22_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la23_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la23_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la24_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la24_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la25_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la25_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la26_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la26_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la27_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la27_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la28_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la28_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la29_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la29_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la30_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la30_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la31_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la31_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la32_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la32_n]
-set_property IOSTANDARD LVDS [get_ports fmc_la33_p]
-set_property IOSTANDARD LVDS [get_ports fmc_la33_n]
+# LVDS IOSTANDARD for all LA pairs
+set_property IOSTANDARD LVDS [get_ports {fmc_la*_p fmc_la*_n}]
 
-# -- FMC I2C and power good  (Bank 86, HD, 3.3 V)
+# FMC I2C and power good (Bank 86, LVCMOS33)
 set_property PACKAGE_PIN F10 [get_ports fmc_scl]
 set_property PACKAGE_PIN F9  [get_ports fmc_sda]
 set_property PACKAGE_PIN G10 [get_ports fmc_pwrgd]
@@ -526,26 +481,26 @@ set_property IOSTANDARD LVCMOS33 [get_ports fmc_scl]
 set_property IOSTANDARD LVCMOS33 [get_ports fmc_sda]
 set_property IOSTANDARD LVCMOS33 [get_ports fmc_pwrgd]
 
-# -- FMC DP GTY transceiver reference (no IOSTANDARD required)
-# DP0 C2M: N5/N4  DP0 M2C: M2/M1  (Bank 226 MGTYTXP/MGTYRXP)
-# DP1 C2M: L5/L4  DP1 M2C: K2/K1
-# DP2 C2M: J5/J4  DP2 M2C: H2/H1
-# DP3 C2M: G5/G4  DP3 M2C: F2/F1
-# DP4 C2M: F7/F6  DP4 M2C: D2/D1  (Bank 227)
-# DP5 C2M: E5/E4  DP5 M2C: C4/C3
-# DP6 C2M: D7/D6  DP6 M2C: B2/B1
-# DP7 C2M: B7/B6  DP7 M2C: A4/A3
-# GBTCLK0 M2C: P7(P)/P6(N)   GBTCLK1 M2C: K7(P)/K6(N)
+# FMC DP GTY transceiver reference (configured via GT Wizard, no IOSTANDARD)
+#   DP0  C2M: N5/N4    M2C: M2/M1     (Bank 226 MGTYTXP0/RXP0)
+#   DP1  C2M: L5/L4    M2C: K2/K1
+#   DP2  C2M: J5/J4    M2C: H2/H1
+#   DP3  C2M: G5/G4    M2C: F2/F1
+#   DP4  C2M: F7/F6    M2C: D2/D1     (Bank 227)
+#   DP5  C2M: E5/E4    M2C: C4/C3
+#   DP6  C2M: D7/D6    M2C: B2/B1
+#   DP7  C2M: B7/B6    M2C: A4/A3
+#   GBTCLK0 M2C: P7/P6   GBTCLK1 M2C: K7/K6
 
 
 ##############################################################################
-# 40-PIN EXPANSION IO  (Bank 86 and 87, HD, 3.3 V -- FIXED, NOT changeable)
-# 2.54 mm pitch HDR2X20 connector (J1)
-# 34 signal lines (17 differential pairs), 1x 5V, 2x 3.3V, 3x GND
-# All traces are length-matched at 2880.464 mil
-# Compatible with Heijin (Hei Jin) expansion modules
+# 40-PIN EXPANSION IO  (Banks 86 and 87, HD, 3.3 V FIXED)
+# 2.54 mm HDR2×20 connector (J1)
+# 17 differential pairs total; all traces length-matched to 2880.464 mil.
+#
+# Pin layout (pin 1 = GND/reserved, pin 2 = +5 V, pins 37/38 = GND, 39/40 = +3.3 V)
 ##############################################################################
-# Bank 86 (IO1-IO6, pins 3-14 odd=N, even=P)
+# Bank 86 (IO1-IO6)
 set_property PACKAGE_PIN D10 [get_ports {io_n[1]}]
 set_property PACKAGE_PIN D11 [get_ports {io_p[1]}]
 set_property PACKAGE_PIN E10 [get_ports {io_n[2]}]
@@ -585,3 +540,6 @@ set_property PACKAGE_PIN J13 [get_ports {io_p[17]}]
 
 set_property IOSTANDARD LVCMOS33 [get_ports {io_n[*]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {io_p[*]}]
+
+# NOTE: IO17_N/P (H13/J13) is used as an external UART in this project
+# (J1 pins 35/36). If you reassign, remove the uart_xdc constraints first.
