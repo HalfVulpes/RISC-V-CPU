@@ -333,7 +333,6 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   set ddr4_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:ddr4:2.2 ddr4_0]
   set_property -dict [list \
     CONFIG.C0_DDR4_InputClockPeriod  {5000}               \
-    CONFIG.C0_DDR4_CLKOUT0_DIVIDE    {6}                  \
     CONFIG.C0_DDR4_TimePeriod        {833}                 \
     CONFIG.C0_DDR4_MemoryType        {Components}          \
     CONFIG.C0_DDR4_MemoryPart        {MT40A512M16LY-062E}  \
@@ -465,11 +464,11 @@ proc create_root_design { parentCell } {
   set_property -dict [list \
     CONFIG.PRIM_SOURCE              {No_buffer}  \
     CONFIG.PRIM_IN_FREQ             {200.000}    \
-    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {100.000}  \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125.000}  \
+    CONFIG.CLKOUT2_REQUESTED_PHASE  {90.000}     \
     CONFIG.CLKOUT2_USED             {true}       \
-    CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {125.000}  \
-    CONFIG.CLKOUT3_REQUESTED_PHASE  {90.000}     \
+    CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {100.000}  \
     CONFIG.CLKOUT3_USED             {true}       \
     CONFIG.NUM_OUT_CLKS             {3}          \
     CONFIG.USE_PHASE_ALIGNMENT      {true}       \
@@ -499,22 +498,22 @@ proc create_root_design { parentCell } {
   # util_ds_buf_0 → clk_wiz_0 (200 MHz buffered single-ended)
   connect_bd_net [get_bd_pins util_ds_buf_0/IBUF_OUT] [get_bd_pins clk_wiz_0/clk_in1]
 
+  # 125 MHz: Ethernet clock (clk_out1 = phase reference for clk_out2)
+  connect_bd_net -net ETH_clock \
+    [get_bd_pins clk_wiz_0/clk_out1] \
+    [get_bd_pins IO/clock_125MHz]
+
+  # 125 MHz 90°: Ethernet TX clock (phase-aligned with clk_out1)
+  connect_bd_net -net ETH_clock_90 \
+    [get_bd_pins clk_wiz_0/clk_out2] \
+    [get_bd_pins IO/clock_125MHz_90]
+
   # 100 MHz: CPU clock, DDR AXI clock, IO AXI clock, UART/SD clocks
   connect_bd_net -net AXI_clock \
-    [get_bd_pins clk_wiz_0/clk_out1] \
+    [get_bd_pins clk_wiz_0/clk_out3] \
     [get_bd_pins DDR/axi_clock]       \
     [get_bd_pins IO/axi_clock]        \
     [get_bd_pins RocketChip/clock]
-
-  # 125 MHz: Ethernet clock
-  connect_bd_net -net ETH_clock \
-    [get_bd_pins clk_wiz_0/clk_out2] \
-    [get_bd_pins IO/clock_125MHz]
-
-  # 125 MHz 90°: Ethernet TX clock
-  connect_bd_net -net ETH_clock_90 \
-    [get_bd_pins clk_wiz_0/clk_out3] \
-    [get_bd_pins IO/clock_125MHz_90]
 
   # PLL locked → clock_ok and io_ok
   connect_bd_net -net clock_ok \
