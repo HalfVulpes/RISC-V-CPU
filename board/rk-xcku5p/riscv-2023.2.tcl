@@ -469,10 +469,10 @@ proc create_root_design { parentCell } {
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_USED             {true}       \
     CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {125.000}  \
-    CONFIG.CLKOUT3_PHASE            {90.000}     \
+    CONFIG.CLKOUT3_REQUESTED_PHASE  {90.000}     \
     CONFIG.CLKOUT3_USED             {true}       \
     CONFIG.NUM_OUT_CLKS             {3}          \
-    CONFIG.USE_PHASE_ALIGNMENT      {false}      \
+    CONFIG.USE_PHASE_ALIGNMENT      {true}       \
     CONFIG.USE_RESET                {false}      \
     CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true} \
   ] $clk_wiz_0
@@ -579,13 +579,11 @@ proc create_root_design { parentCell } {
     -target_address_space [get_bd_addr_spaces RocketChip/MEM_AXI4] \
     [get_bd_addr_segs DDR/ddr4_0/C0_DDR4_MEMORY_MAP/C0_DDR4_ADDRESS_BLOCK] -force
 
-  # DMA address space (Ethernet + SD → RocketChip DMA port)
-  set addr_bits [get_property CONFIG.ADDR_WIDTH [get_bd_intf_pins RocketChip/DMA_AXI4]]
-  set addr_range [expr 1 << $addr_bits]
-  assign_bd_address -offset 0x00000000 -range $addr_range \
+  # DMA address space (Ethernet + SD → RocketChip DMA port, 4 GB max)
+  assign_bd_address -offset 0x00000000 -range 0x000100000000 \
     -target_address_space [get_bd_addr_spaces IO/Ethernet/M_AXI] \
     [get_bd_addr_segs RocketChip/DMA_AXI4/reg0] -force
-  assign_bd_address -offset 0x00000000 -range $addr_range \
+  assign_bd_address -offset 0x00000000 -range 0x000100000000 \
     -target_address_space [get_bd_addr_spaces IO/SD/M_AXI] \
     [get_bd_addr_segs RocketChip/DMA_AXI4/reg0] -force
 
