@@ -338,8 +338,8 @@ proc create_hier_cell_DDR { parentCell nameHier } {
     CONFIG.C0.DDR4_MemoryType         {Components}          \
     CONFIG.C0.DDR4_MemoryPart         {MT40A512M16LY-075}   \
     CONFIG.C0.DDR4_DataWidth          {32}                  \
-    CONFIG.C0.DDR4_CasLatency         {17}                  \
-    CONFIG.C0.DDR4_CasWriteLatency    {12}                  \
+    CONFIG.C0.DDR4_CasLatency         {19}                  \
+    CONFIG.C0.DDR4_CasWriteLatency    {14}                  \
     CONFIG.C0.DDR4_PhyClockRatio      {4:1}                 \
     CONFIG.C0.DDR4_AxiIDWidth         {4}                   \
     CONFIG.C0.DDR4_AxiDataWidth       {256}                 \
