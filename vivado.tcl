@@ -1,3 +1,9 @@
+# Register custom board files if the board has a board_files directory
+set _board_files_path [file normalize "../../board/${vivado_board_name}/board_files"]
+if {[file isdirectory $_board_files_path]} {
+   set_param board.repoPaths [list $_board_files_path]
+}
+
 # If there is no project opened, create a project
 set list_projs [get_projects -quiet]
 if { $list_projs eq "" } {

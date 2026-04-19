@@ -330,19 +330,22 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   create_bd_pin -dir I -type rst sys_reset
 
   # DDR4 IP: MT40A512M16LY-062E, DDR4-2400, 32-bit, 200 MHz input
+  # Board interfaces supply pin placement; preset provides IP parameters.
   set ddr4_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:ddr4:2.2 ddr4_0]
   set_property -dict [list \
-    CONFIG.C0_DDR4_InputClockPeriod  {5000}               \
-    CONFIG.C0_DDR4_TimePeriod        {833}                 \
-    CONFIG.C0_DDR4_MemoryType        {Components}          \
-    CONFIG.C0_DDR4_MemoryPart        {MT40A512M16LY-062E}  \
-    CONFIG.C0_DDR4_DataWidth         {32}                  \
-    CONFIG.C0_DDR4_CasLatency        {17}                  \
-    CONFIG.C0_DDR4_CasWriteLatency   {12}                  \
-    CONFIG.C0_DDR4_PhyClockRatio     {4:1}                 \
-    CONFIG.C0_DDR4_AxiIDWidth        {4}                   \
-    CONFIG.C0_DDR4_AxiDataWidth      {512}                 \
-    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ   {None}               \
+    CONFIG.C0_DDR4_BOARD_INTERFACE    {ddr4_sdram_c0}       \
+    CONFIG.C0_CLOCK_BOARD_INTERFACE   {ddr4_ref_clk}        \
+    CONFIG.C0_DDR4_InputClockPeriod   {5000}                \
+    CONFIG.C0_DDR4_TimePeriod         {833}                 \
+    CONFIG.C0_DDR4_MemoryType         {Components}          \
+    CONFIG.C0_DDR4_MemoryPart         {MT40A512M16LY-062E}  \
+    CONFIG.C0_DDR4_DataWidth          {32}                  \
+    CONFIG.C0_DDR4_CasLatency         {17}                  \
+    CONFIG.C0_DDR4_CasWriteLatency    {12}                  \
+    CONFIG.C0_DDR4_PhyClockRatio      {4:1}                 \
+    CONFIG.C0_DDR4_AxiIDWidth         {4}                   \
+    CONFIG.C0_DDR4_AxiDataWidth       {256}                 \
+    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {None}                \
   ] $ddr4_0
 
   # SmartConnect bridges CPU clock (aclk) and DDR4 UI clock (aclk1)
@@ -452,14 +455,19 @@ proc create_root_design { parentCell } {
   global rocket_module_name
   set RocketChip [create_bd_cell -type module -reference $rocket_module_name RocketChip]
 
+  # Link BD ports to board.xml interfaces so Vivado uses board file for XDC
+  set_property CONFIG.BOARD_INTERFACE {sys_diff_clock} [get_bd_intf_ports sys_diff_clock]
+  set_property CONFIG.BOARD_INTERFACE {ddr4_ref_clk}   [get_bd_intf_ports ddr4_sys_clk]
+  set_property CONFIG.BOARD_INTERFACE {ddr4_sdram_c0}  [get_bd_intf_ports ddr4_sdram_c0]
+
   # IBUFDS for sys_diff_clock → single-ended clk_in1 for clk_wiz_0
   set util_ds_buf_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.2 util_ds_buf_0]
   set_property -dict [list CONFIG.C_BUF_TYPE {IBUFDS}] $util_ds_buf_0
 
   # clk_wiz_0: 200 MHz input (No_buffer), VCO = 1000 MHz
-  #   clk_out1 = 100 MHz  (CPU/AXI/UART/SD)
-  #   clk_out2 = 125 MHz  (Ethernet logic)
-  #   clk_out3 = 125 MHz 90 deg (Ethernet TX via USE_CLK90)
+  #   clk_out1 = 125 MHz         (Ethernet, phase reference for clk_out2)
+  #   clk_out2 = 125 MHz @90°   (Ethernet TX USE_CLK90)
+  #   clk_out3 = 100 MHz         (CPU/AXI/UART/SD)
   set clk_wiz_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0]
   set_property -dict [list \
     CONFIG.PRIM_SOURCE              {No_buffer}  \

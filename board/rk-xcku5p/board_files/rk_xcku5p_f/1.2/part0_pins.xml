@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<part_info part_name="xcku5p-ffvb676-2-i">
+  <pins>
+    <!-- Bank 65: system clock / DDR4 reference clock -->
+    <pin index="1"  name="T24" package_pin="T24" bank="65" type="io"/>
+    <pin index="2"  name="U24" package_pin="U24" bank="65" type="io"/>
+    <!-- Bank 65: DDR4 CK_T/CK_C -->
+    <pin index="3"  name="V24" package_pin="V24" bank="65" type="io"/>
+    <pin index="4"  name="W24" package_pin="W24" bank="65" type="io"/>
+    <!-- Bank 65: DDR4 address ADR[0:16] -->
+    <pin index="5"  name="Y22" package_pin="Y22" bank="65" type="io"/>
+    <pin index="6"  name="Y25" package_pin="Y25" bank="65" type="io"/>
+    <pin index="7"  name="W23" package_pin="W23" bank="65" type="io"/>
+    <pin index="8"  name="V26" package_pin="V26" bank="65" type="io"/>
+    <pin index="9"  name="R26" package_pin="R26" bank="65" type="io"/>
+    <pin index="10" name="U26" package_pin="U26" bank="65" type="io"/>
+    <pin index="11" name="R21" package_pin="R21" bank="65" type="io"/>
+    <pin index="12" name="W25" package_pin="W25" bank="65" type="io"/>
+    <pin index="13" name="R20" package_pin="R20" bank="65" type="io"/>
+    <pin index="14" name="Y26" package_pin="Y26" bank="65" type="io"/>
+    <pin index="15" name="R25" package_pin="R25" bank="65" type="io"/>
+    <pin index="16" name="V23" package_pin="V23" bank="65" type="io"/>
+    <pin index="17" name="AA24" package_pin="AA24" bank="65" type="io"/>
+    <pin index="18" name="W26" package_pin="W26" bank="65" type="io"/>
+    <pin index="19" name="AA25" package_pin="AA25" bank="65" type="io"/>
+    <pin index="20" name="T25"  package_pin="T25"  bank="65" type="io"/>
+    <pin index="21" name="P23"  package_pin="P23"  bank="65" type="io"/>
+    <!-- Bank 65: DDR4 bank address BA[0:1] -->
+    <pin index="22" name="P21" package_pin="P21" bank="65" type="io"/>
+    <pin index="23" name="P26" package_pin="P26" bank="65" type="io"/>
+    <!-- Bank 65: DDR4 bank group BG[0] -->
+    <pin index="24" name="R22" package_pin="R22" bank="65" type="io"/>
+    <!-- Bank 65: DDR4 control signals -->
+    <pin index="25" name="P24" package_pin="P24" bank="65" type="io"/>
+    <pin index="26" name="P19" package_pin="P19" bank="65" type="io"/>
+    <pin index="27" name="P20" package_pin="P20" bank="65" type="io"/>
+    <pin index="28" name="P25" package_pin="P25" bank="65" type="io"/>
+    <pin index="29" name="R23" package_pin="R23" bank="65" type="io"/>
+    <!-- Bank 64: DDR4 data mask DM_N[0:3] -->
+    <pin index="30" name="AE25" package_pin="AE25" bank="64" type="io"/>
+    <pin index="31" name="AE22" package_pin="AE22" bank="64" type="io"/>
+    <pin index="32" name="AD20" package_pin="AD20" bank="64" type="io"/>
+    <pin index="33" name="Y20"  package_pin="Y20"  bank="64" type="io"/>
+    <!-- Bank 64: DDR4 DQS_T[0:3] -->
+    <pin index="34" name="AC26" package_pin="AC26" bank="64" type="io"/>
+    <pin index="35" name="AA22" package_pin="AA22" bank="64" type="io"/>
+    <pin index="36" name="AC18" package_pin="AC18" bank="64" type="io"/>
+    <pin index="37" name="AB17" package_pin="AB17" bank="64" type="io"/>
+    <!-- Bank 64: DDR4 DQS_C[0:3] -->
+    <pin index="38" name="AD26" package_pin="AD26" bank="64" type="io"/>
+    <pin index="39" name="AB22" package_pin="AB22" bank="64" type="io"/>
+    <pin index="40" name="AD18" package_pin="AD18" bank="64" type="io"/>
+    <pin index="41" name="AC17" package_pin="AC17" bank="64" type="io"/>
+    <!-- Bank 64: DDR4 DQ[0:31] -->
+    <pin index="42" name="AF24" package_pin="AF24" bank="64" type="io"/>
+    <pin index="43" name="AF25" package_pin="AF25" bank="64" type="io"/>
+    <pin index="44" name="AD24" package_pin="AD24" bank="64" type="io"/>
+    <pin index="45" name="AB26" package_pin="AB26" bank="64" type="io"/>
+    <pin index="46" name="AC24" package_pin="AC24" bank="64" type="io"/>
+    <pin index="47" name="AB25" package_pin="AB25" bank="64" type="io"/>
+    <pin index="48" name="AD25" package_pin="AD25" bank="64" type="io"/>
+    <pin index="49" name="AB24" package_pin="AB24" bank="64" type="io"/>
+    <pin index="50" name="AC21" package_pin="AC21" bank="64" type="io"/>
+    <pin index="51" name="AD23" package_pin="AD23" bank="64" type="io"/>
+    <pin index="52" name="AD21" package_pin="AD21" bank="64" type="io"/>
+    <pin index="53" name="AC22" package_pin="AC22" bank="64" type="io"/>
+    <pin index="54" name="AB21" package_pin="AB21" bank="64" type="io"/>
+    <pin index="55" name="AE23" package_pin="AE23" bank="64" type="io"/>
+    <pin index="56" name="AE21" package_pin="AE21" bank="64" type="io"/>
+    <pin index="57" name="AC23" package_pin="AC23" bank="64" type="io"/>
+    <pin index="58" name="AE16" package_pin="AE16" bank="64" type="io"/>
+    <pin index="59" name="AD19" package_pin="AD19" bank="64" type="io"/>
+    <pin index="60" name="AD16" package_pin="AD16" bank="64" type="io"/>
+    <pin index="61" name="AF17" package_pin="AF17" bank="64" type="io"/>
+    <pin index="62" name="AC19" package_pin="AC19" bank="64" type="io"/>
+    <pin index="63" name="AF19" package_pin="AF19" bank="64" type="io"/>
+    <pin index="64" name="AF18" package_pin="AF18" bank="64" type="io"/>
+    <pin index="65" name="AE17" package_pin="AE17" bank="64" type="io"/>
+    <pin index="66" name="AA20" package_pin="AA20" bank="64" type="io"/>
+    <pin index="67" name="AA18" package_pin="AA18" bank="64" type="io"/>
+    <pin index="68" name="AA19" package_pin="AA19" bank="64" type="io"/>
+    <pin index="69" name="Y18"  package_pin="Y18"  bank="64" type="io"/>
+    <pin index="70" name="AB20" package_pin="AB20" bank="64" type="io"/>
+    <pin index="71" name="Y17"  package_pin="Y17"  bank="64" type="io"/>
+    <pin index="72" name="AB19" package_pin="AB19" bank="64" type="io"/>
+    <pin index="73" name="AA17" package_pin="AA17" bank="64" type="io"/>
+  </pins>
+</part_info>

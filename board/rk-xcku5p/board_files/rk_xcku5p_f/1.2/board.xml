@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<board schema_version="2.1" vendor="user.org" library="user" name="rk_xcku5p_f" display_name="RIGUKE RK-XCKU5P-F V1.2" url="" preset_file="preset.xml">
+  <images>
+  </images>
+  <description>RIGUKE RK-XCKU5P-F V1.2 — AMD Kintex UltraScale+ XCKU5P-2FFVB676I with 2 GB DDR4, GbE, MicroSD, UART/JTAG</description>
+  <compatible_board_revisions>
+    <revision id="1.2"/>
+  </compatible_board_revisions>
+  <file_version>1.2</file_version>
+  <components>
+    <component name="part0" display_name="XCKU5P-2FFVB676I" type="fpga" part_name="xcku5p-ffvb676-2-i" pin_map_file="part0_pins.xml" vendor="xilinx" library="module"/>
+    <component name="ddr4_sdram_c0_mt40a512m16ly_062e_u1" display_name="Micron MT40A512M16LY-062E (U1)" type="chip" part_name="MT40A512M16LY-062E" vendor="micron" library="module"/>
+    <component name="ddr4_sdram_c0_mt40a512m16ly_062e_u2" display_name="Micron MT40A512M16LY-062E (U2)" type="chip" part_name="MT40A512M16LY-062E" vendor="micron" library="module"/>
+    <component name="sg3225van_200mhz" display_name="SG3225VAN 200 MHz oscillator" type="chip" part_name="SG3225VAN" vendor="epson" library="module"/>
+  </components>
+  <interfaces>
+    <!-- 200 MHz differential system clock (Bank 65, pins T24/U24) -->
+    <interface mode="slave" name="sys_diff_clock" type="xilinx.com:interface:diff_clock_rtl:1.0" of_component="part0" preset_proc="sys_diff_clock_preset">
+      <description>200 MHz system differential clock input (SG3225VAN, Bank 65)</description>
+      <preferred_ips>
+        <preferred_ip vendor="xilinx.com" library="ip" name="clk_wiz" order="0"/>
+      </preferred_ips>
+      <port_maps>
+        <port_map logical_port="CLK_P" physical_port="CLK_P" dir="in">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="T24"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="CLK_N" physical_port="CLK_N" dir="in">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="U24"/>
+          </pin_maps>
+        </port_map>
+      </port_maps>
+      <parameters>
+        <parameter name="FREQ_HZ" value="200000000"/>
+      </parameters>
+    </interface>
+    <!-- DDR4 reference clock — same physical pins as sys_diff_clock -->
+    <interface mode="slave" name="ddr4_ref_clk" type="xilinx.com:interface:diff_clock_rtl:1.0" of_component="part0" preset_proc="ddr4_ref_clk_preset">
+      <description>DDR4 reference clock (200 MHz differential, Bank 65, T24/U24)</description>
+      <preferred_ips>
+        <preferred_ip vendor="xilinx.com" library="ip" name="ddr4" order="0"/>
+      </preferred_ips>
+      <port_maps>
+        <port_map logical_port="CLK_P" physical_port="CLK_P" dir="in">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="T24"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="CLK_N" physical_port="CLK_N" dir="in">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="U24"/>
+          </pin_maps>
+        </port_map>
+      </port_maps>
+      <parameters>
+        <parameter name="FREQ_HZ" value="200000000"/>
+      </parameters>
+    </interface>
+    <!-- DDR4 SDRAM interface — 2x MT40A512M16LY-062E, 32-bit bus, Bank 64/65 -->
+    <interface mode="master" name="ddr4_sdram_c0" type="xilinx.com:interface:ddr4_rtl:1.0" of_component="part0" preset_proc="ddr4_sdram_c0_preset">
+      <description>DDR4 SDRAM — 2 GB, 32-bit bus (2x MT40A512M16LY-062E), Bank 64/65</description>
+      <preferred_ips>
+        <preferred_ip vendor="xilinx.com" library="ip" name="ddr4" order="0"/>
+      </preferred_ips>
+      <port_maps>
+        <!-- Clock -->
+        <port_map logical_port="CK_T" physical_port="CK_T" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="V24"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="CK_C" physical_port="CK_C" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="W24"/>
+          </pin_maps>
+        </port_map>
+        <!-- Address -->
+        <port_map logical_port="ADR" physical_port="ADR" dir="out">
+          <pin_maps>
+            <pin_map port_index="0"  component_pin="Y22"/>
+            <pin_map port_index="1"  component_pin="Y25"/>
+            <pin_map port_index="2"  component_pin="W23"/>
+            <pin_map port_index="3"  component_pin="V26"/>
+            <pin_map port_index="4"  component_pin="R26"/>
+            <pin_map port_index="5"  component_pin="U26"/>
+            <pin_map port_index="6"  component_pin="R21"/>
+            <pin_map port_index="7"  component_pin="W25"/>
+            <pin_map port_index="8"  component_pin="R20"/>
+            <pin_map port_index="9"  component_pin="Y26"/>
+            <pin_map port_index="10" component_pin="R25"/>
+            <pin_map port_index="11" component_pin="V23"/>
+            <pin_map port_index="12" component_pin="AA24"/>
+            <pin_map port_index="13" component_pin="W26"/>
+            <pin_map port_index="14" component_pin="AA25"/>
+            <pin_map port_index="15" component_pin="T25"/>
+            <pin_map port_index="16" component_pin="P23"/>
+          </pin_maps>
+        </port_map>
+        <!-- Bank Address -->
+        <port_map logical_port="BA" physical_port="BA" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="P21"/>
+            <pin_map port_index="1" component_pin="P26"/>
+          </pin_maps>
+        </port_map>
+        <!-- Bank Group (1 bit for x16 device) -->
+        <port_map logical_port="BG" physical_port="BG" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="R22"/>
+          </pin_maps>
+        </port_map>
+        <!-- Control signals -->
+        <port_map logical_port="ACT_N" physical_port="ACT_N" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="P24"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="RESET_N" physical_port="RESET_N" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="P19"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="CKE" physical_port="CKE" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="P20"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="CS_N" physical_port="CS_N" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="P25"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="ODT" physical_port="ODT" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="R23"/>
+          </pin_maps>
+        </port_map>
+        <!-- Data Mask / DBI -->
+        <port_map logical_port="DM_N" physical_port="DM_N" dir="out">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="AE25"/>
+            <pin_map port_index="1" component_pin="AE22"/>
+            <pin_map port_index="2" component_pin="AD20"/>
+            <pin_map port_index="3" component_pin="Y20"/>
+          </pin_maps>
+        </port_map>
+        <!-- DQS strobes -->
+        <port_map logical_port="DQS_T" physical_port="DQS_T" dir="inout">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="AC26"/>
+            <pin_map port_index="1" component_pin="AA22"/>
+            <pin_map port_index="2" component_pin="AC18"/>
+            <pin_map port_index="3" component_pin="AB17"/>
+          </pin_maps>
+        </port_map>
+        <port_map logical_port="DQS_C" physical_port="DQS_C" dir="inout">
+          <pin_maps>
+            <pin_map port_index="0" component_pin="AD26"/>
+            <pin_map port_index="1" component_pin="AB22"/>
+            <pin_map port_index="2" component_pin="AD18"/>
+            <pin_map port_index="3" component_pin="AC17"/>
+          </pin_maps>
+        </port_map>
+        <!-- Data bus DQ[0:31] -->
+        <port_map logical_port="DQ" physical_port="DQ" dir="inout">
+          <pin_maps>
+            <pin_map port_index="0"  component_pin="AF24"/>
+            <pin_map port_index="1"  component_pin="AF25"/>
+            <pin_map port_index="2"  component_pin="AD24"/>
+            <pin_map port_index="3"  component_pin="AB26"/>
+            <pin_map port_index="4"  component_pin="AC24"/>
+            <pin_map port_index="5"  component_pin="AB25"/>
+            <pin_map port_index="6"  component_pin="AD25"/>
+            <pin_map port_index="7"  component_pin="AB24"/>
+            <pin_map port_index="8"  component_pin="AC21"/>
+            <pin_map port_index="9"  component_pin="AD23"/>
+            <pin_map port_index="10" component_pin="AD21"/>
+            <pin_map port_index="11" component_pin="AC22"/>
+            <pin_map port_index="12" component_pin="AB21"/>
+            <pin_map port_index="13" component_pin="AE23"/>
+            <pin_map port_index="14" component_pin="AE21"/>
+            <pin_map port_index="15" component_pin="AC23"/>
+            <pin_map port_index="16" component_pin="AE16"/>
+            <pin_map port_index="17" component_pin="AD19"/>
+            <pin_map port_index="18" component_pin="AD16"/>
+            <pin_map port_index="19" component_pin="AF17"/>
+            <pin_map port_index="20" component_pin="AC19"/>
+            <pin_map port_index="21" component_pin="AF19"/>
+            <pin_map port_index="22" component_pin="AF18"/>
+            <pin_map port_index="23" component_pin="AE17"/>
+            <pin_map port_index="24" component_pin="AA20"/>
+            <pin_map port_index="25" component_pin="AA18"/>
+            <pin_map port_index="26" component_pin="AA19"/>
+            <pin_map port_index="27" component_pin="Y18"/>
+            <pin_map port_index="28" component_pin="AB20"/>
+            <pin_map port_index="29" component_pin="Y17"/>
+            <pin_map port_index="30" component_pin="AB19"/>
+            <pin_map port_index="31" component_pin="AA17"/>
+          </pin_maps>
+        </port_map>
+      </port_maps>
+    </interface>
+  </interfaces>
+</board>

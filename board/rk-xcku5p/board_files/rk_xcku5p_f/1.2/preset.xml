@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ip_presets schema="1.0">
+
+  <ip_preset preset_proc_name="sys_diff_clock_preset" vendor="xilinx.com" library="ip" name="clk_wiz" version="6.0">
+    <ip_inst name="clk_wiz_inst">
+      <recommended_ips/>
+      <user_parameters>
+        <user_parameter name="CONFIG.PRIM_SOURCE"  value="Differential_clock_capable_pin"/>
+        <user_parameter name="CONFIG.PRIM_IN_FREQ" value="200.000"/>
+      </user_parameters>
+    </ip_inst>
+  </ip_preset>
+
+  <ip_preset preset_proc_name="ddr4_ref_clk_preset" vendor="xilinx.com" library="ip" name="ddr4" version="2.2">
+    <ip_inst name="ddr4_inst">
+      <recommended_ips/>
+      <user_parameters>
+        <user_parameter name="CONFIG.C0_CLOCK_BOARD_INTERFACE" value="ddr4_ref_clk"/>
+        <user_parameter name="CONFIG.C0_DDR4_InputClockPeriod" value="5000"/>
+      </user_parameters>
+    </ip_inst>
+  </ip_preset>
+
+  <ip_preset preset_proc_name="ddr4_sdram_c0_preset" vendor="xilinx.com" library="ip" name="ddr4" version="2.2">
+    <ip_inst name="ddr4_inst">
+      <recommended_ips/>
+      <user_parameters>
+        <user_parameter name="CONFIG.C0_DDR4_BOARD_INTERFACE"   value="ddr4_sdram_c0"/>
+        <user_parameter name="CONFIG.C0_CLOCK_BOARD_INTERFACE"  value="ddr4_ref_clk"/>
+        <user_parameter name="CONFIG.C0_DDR4_InputClockPeriod"  value="5000"/>
+        <user_parameter name="CONFIG.C0_DDR4_TimePeriod"        value="833"/>
+        <user_parameter name="CONFIG.C0_DDR4_MemoryType"        value="Components"/>
+        <user_parameter name="CONFIG.C0_DDR4_MemoryPart"        value="MT40A512M16LY-062E"/>
+        <user_parameter name="CONFIG.C0_DDR4_DataWidth"         value="32"/>
+        <user_parameter name="CONFIG.C0_DDR4_CasLatency"        value="17"/>
+        <user_parameter name="CONFIG.C0_DDR4_CasWriteLatency"   value="12"/>
+        <user_parameter name="CONFIG.C0_DDR4_PhyClockRatio"     value="4:1"/>
+        <user_parameter name="CONFIG.C0_DDR4_AxiIDWidth"        value="4"/>
+        <user_parameter name="CONFIG.C0_DDR4_AxiDataWidth"      value="256"/>
+      </user_parameters>
+    </ip_inst>
+  </ip_preset>
+
+</ip_presets>
