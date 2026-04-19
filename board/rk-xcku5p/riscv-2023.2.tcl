@@ -344,7 +344,7 @@ proc create_hier_cell_DDR { parentCell nameHier } {
     CONFIG.C0.DDR4_PhyClockRatio      {4:1}                 \
     CONFIG.C0.DDR4_AxiIDWidth         {4}                   \
     CONFIG.C0.DDR4_AxiDataWidth       {256}                 \
-    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {200000000}           \
+    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {200}                 \
   ] $ddr4_0
 
   # SmartConnect bridges CPU clock (aclk) and DDR4 UI clock (aclk1)
