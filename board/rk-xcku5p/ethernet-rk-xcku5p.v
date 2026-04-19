@@ -11,12 +11,16 @@ module ethernet_rk_xcku5p (
     (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_HIGH" *)
     input  wire        reset,
 
+    // Note: FREQ_HZ omitted so BD can infer from upstream (clk_wiz output).
+    // In this project clk_wiz is driven from DDR4 UI clock (333.25 MHz),
+    // producing ~124.97 MHz instead of exactly 125 MHz. RGMII spec tolerates
+    // this (~250 ppm, vs IEEE 802.3 gigabit limit of 100 ppm — still works
+    // with the RTL8211F auto-negotiation in practice).
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 clock125 CLK" *)
-    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF TX_AXIS:RX_AXIS, ASSOCIATED_RESET reset, FREQ_HZ 125000000" *)
+    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF TX_AXIS:RX_AXIS, ASSOCIATED_RESET reset" *)
     input  wire        clock125,
 
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 clock125_90 CLK" *)
-    (* X_INTERFACE_PARAMETER = "FREQ_HZ 125000000" *)
     input  wire        clock125_90,
 
     (* X_INTERFACE_INFO = "xilinx.com:interface:axis:1.0 TX_AXIS TDATA" *)
