@@ -40,7 +40,7 @@ module sdc_controller #(
     input wire async_resetn,
 
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 clock CLK" *)
-    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI:S_AXI_LITE, FREQ_HZ 100000000" *)
+    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF M_AXI:S_AXI_LITE" *)
     input wire clock,
 
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI_LITE AWADDR" *)

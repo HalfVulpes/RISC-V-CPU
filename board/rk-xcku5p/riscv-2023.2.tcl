@@ -199,14 +199,6 @@ proc create_hier_cell_IO { parentCell nameHier } {
      return 1
   }
 
-  # Override fixed FREQ_HZ in the SD/UART IPs to match our actual clk_wiz outputs.
-  # Our clk_wiz is driven from the DDR4 UI clock (333.25 MHz, not 333.33...),
-  # so clk_out3 = 999.75/10 = 99.975 MHz instead of exactly 100 MHz.
-  # The IPs' Verilog hardcodes FREQ_HZ=100000000 on their clock inputs, but BD
-  # requires an exact match; setting CONFIG.FREQ_HZ here overrides the default.
-  set_property CONFIG.FREQ_HZ 99975000 [get_bd_pins UART/clock]
-  set_property CONFIG.FREQ_HZ 99975000 [get_bd_pins SD/clock]
-
   # AXI slave interconnect: RocketChip IO → UART/SD/Ethernet registers
   set io_axi_s [create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 io_axi_s]
   set_property -dict [list CONFIG.NUM_CLKS {2} CONFIG.NUM_MI {3} CONFIG.NUM_SI {1}] $io_axi_s
