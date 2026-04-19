@@ -327,6 +327,7 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   create_bd_pin -dir I           axi_reset
   create_bd_pin -dir O           c0_init_calib_complete
   create_bd_pin -dir O -type clk ui_clk
+  create_bd_pin -dir O -type clk addn_clk_200
   create_bd_pin -dir I -type rst sys_reset
 
   # DDR4 IP: MT40A512M16LY-062E, DDR4-2400, 32-bit, 200 MHz input
@@ -343,7 +344,7 @@ proc create_hier_cell_DDR { parentCell nameHier } {
     CONFIG.C0.DDR4_PhyClockRatio      {4:1}                 \
     CONFIG.C0.DDR4_AxiIDWidth         {4}                   \
     CONFIG.C0.DDR4_AxiDataWidth       {256}                 \
-    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {None}                \
+    CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {200000000}           \
   ] $ddr4_0
 
   # SmartConnect bridges CPU clock (aclk) and DDR4 UI clock (aclk1)
@@ -371,6 +372,9 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   connect_bd_net [get_bd_pins ddr4_0/c0_ddr4_ui_clk] \
     [get_bd_pins smartconnect_1/aclk1] \
     [get_bd_pins ui_clk]
+
+  # DDR4 additional 200 MHz output (VCO=1000 MHz / 5) → exposed to root for clk_wiz_0
+  connect_bd_net [get_bd_pins ddr4_0/addn_ui_clkout1] [get_bd_pins addn_clk_200]
 
   # DDR4 AXI reset: invert sync_rst → aresetn
   connect_bd_net [get_bd_pins ddr4_0/c0_ddr4_ui_clk_sync_rst] [get_bd_pins rst_inv/Op1]
@@ -451,15 +455,15 @@ proc create_root_design { parentCell } {
   set RocketChip [create_bd_cell -type module -reference $rocket_module_name RocketChip]
 
 
-  # clk_wiz_0: 300 MHz input from DDR4 UI clock (No_buffer), VCO = 1500 MHz
+  # clk_wiz_0: 200 MHz input from DDR4 addn_ui_clkout1 (No_buffer), VCO = 1000 MHz
   #   clk_out1 = 125 MHz         (Ethernet, phase reference for clk_out2)
   #   clk_out2 = 125 MHz @90°   (Ethernet TX USE_CLK90)
   #   clk_out3 = 100 MHz         (CPU/AXI/UART/SD)
-  # DDR4 UI clock is 300 MHz (DDR4-2400, 4:1 PHY ratio: 1200 MHz / 4 = 300 MHz)
+  # DDR4 addn_ui_clkout1 = 200 MHz exactly (PLL VCO=1000 MHz / 5, integer division)
   set clk_wiz_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0]
   set_property -dict [list \
     CONFIG.PRIM_SOURCE              {No_buffer}  \
-    CONFIG.PRIM_IN_FREQ             {333.250}    \
+    CONFIG.PRIM_IN_FREQ             {200.000}    \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_PHASE  {90.000}     \
@@ -490,8 +494,8 @@ proc create_root_design { parentCell } {
   # Net connections
   # ----------------------------------------------------------------
 
-  # DDR4 UI clock (300 MHz) → clk_wiz_0 for user/AXI/ETH clocks
-  connect_bd_net [get_bd_pins DDR/ui_clk] [get_bd_pins clk_wiz_0/clk_in1]
+  # DDR4 additional 200 MHz clock → clk_wiz_0 for user/AXI/ETH clocks
+  connect_bd_net [get_bd_pins DDR/addn_clk_200] [get_bd_pins clk_wiz_0/clk_in1]
 
   # 125 MHz: Ethernet clock (clk_out1 = phase reference for clk_out2)
   connect_bd_net -net ETH_clock \
