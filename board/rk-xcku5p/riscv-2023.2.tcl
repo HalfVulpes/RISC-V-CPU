@@ -333,16 +333,16 @@ proc create_hier_cell_DDR { parentCell nameHier } {
   # Board interfaces supply pin placement; preset provides IP parameters.
   set ddr4_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:ddr4:2.2 ddr4_0]
   set_property -dict [list \
-    CONFIG.C0_DDR4_InputClockPeriod   {5000}                \
-    CONFIG.C0_DDR4_TimePeriod         {833}                 \
-    CONFIG.C0_DDR4_MemoryType         {Components}          \
-    CONFIG.C0_DDR4_MemoryPart         {MT40A512M16LY-062E}  \
-    CONFIG.C0_DDR4_DataWidth          {32}                  \
-    CONFIG.C0_DDR4_CasLatency         {17}                  \
-    CONFIG.C0_DDR4_CasWriteLatency    {12}                  \
-    CONFIG.C0_DDR4_PhyClockRatio      {4:1}                 \
-    CONFIG.C0_DDR4_AxiIDWidth         {4}                   \
-    CONFIG.C0_DDR4_AxiDataWidth       {256}                 \
+    CONFIG.C0.DDR4_InputClockPeriod   {5000}                \
+    CONFIG.C0.DDR4_TimePeriod         {750}                 \
+    CONFIG.C0.DDR4_MemoryType         {Components}          \
+    CONFIG.C0.DDR4_MemoryPart         {MT40A512M16LY-075}   \
+    CONFIG.C0.DDR4_DataWidth          {32}                  \
+    CONFIG.C0.DDR4_CasLatency         {17}                  \
+    CONFIG.C0.DDR4_CasWriteLatency    {12}                  \
+    CONFIG.C0.DDR4_PhyClockRatio      {4:1}                 \
+    CONFIG.C0.DDR4_AxiIDWidth         {4}                   \
+    CONFIG.C0.DDR4_AxiDataWidth       {256}                 \
     CONFIG.ADDN_UI_CLKOUT1_FREQ_HZ    {None}                \
   ] $ddr4_0
 
@@ -459,7 +459,7 @@ proc create_root_design { parentCell } {
   set clk_wiz_0 [create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0]
   set_property -dict [list \
     CONFIG.PRIM_SOURCE              {No_buffer}  \
-    CONFIG.PRIM_IN_FREQ             {300.000}    \
+    CONFIG.PRIM_IN_FREQ             {333.250}    \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {125.000}  \
     CONFIG.CLKOUT2_REQUESTED_PHASE  {90.000}     \
