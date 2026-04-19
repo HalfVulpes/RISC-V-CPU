@@ -127,42 +127,131 @@ git clone --recurse-submodules https://github.com/HalfVulpes/vivado-risc-v.git
 cd vivado-risc-v
 ```
 
-### Build the FPGA Bitstream
+### 1. Build Everything
+
+Three separate targets build the FPGA bitstream, Linux kernel, and bootloader. Run them in order:
 
 ```bash
+# FPGA bitstream (~45 min on a modern 8-core machine)
 make BOARD=rk-xcku5p CONFIG=rocket64b4 bitstream
+
+# Linux kernel Image (~15 min first time)
+make CROSS_COMPILE=riscv64-linux-gnu- linux
+
+# OpenSBI + U-Boot → workspace/boot.elf (the "BOOT.ELF" the bootrom loads)
+make CROSS_COMPILE=riscv64-linux-gnu- bootloader
 ```
 
-This generates `workspace/rk-xcku5p/rocket64b4/vivado/system.bit`.
+Artifacts produced:
 
-For a 2-core build (faster synthesis):
+| File | Purpose |
+|---|---|
+| `workspace/rocket64b4/rk-xcku5p-riscv.mcs` | SPI flash image for QSPI (bitstream only) |
+| `workspace/rocket64b4/vivado-rk-xcku5p-riscv/rk-xcku5p-riscv.runs/impl_1/riscv_wrapper.bit` | Raw bitstream for JTAG load |
+| `workspace/boot.elf` | OpenSBI + U-Boot payload — **rename to `BOOT.ELF`** on SD |
+| `linux-stable/arch/riscv/boot/Image` | Linux 6.x kernel (~19 MB) |
+| `workspace/rocket64b4/system-rk-xcku5p.dts` | Device tree source for the SoC |
+
+For a 2-core build (faster synthesis, less LUT pressure):
 ```bash
 make BOARD=rk-xcku5p CONFIG=rocket64b2 bitstream
 ```
 
-### Build the SD Card Image
+### 2. Prepare the MicroSD Card
+
+The bootrom embedded in the FPGA bitstream loads `BOOT.ELF` from a **FAT16/32 partition**. Linux then runs from an **ext4 rootfs**. So the card needs **two partitions**:
+
+| Partition | FS | Contents |
+|---|---|---|
+| 1 (~200 MB) | FAT32 | `BOOT.ELF`, `Image`, `system.dtb`, `extlinux/extlinux.conf` |
+| 2 (rest)    | ext4  | Debian rootfs |
+
+Download the Debian RISC-V rootfs tarball:
 
 ```bash
-make BOARD=rk-xcku5p CONFIG=rocket64b4 debian-riscv64-micro.img
+make debian-riscv64/rootfs.tar.gz
 ```
 
-Flash to a MicroSD card (replace `/dev/sdX` with your device):
+Compile the device tree:
 
 ```bash
-sudo dd if=debian-riscv64-micro.img of=/dev/sdX bs=4M status=progress
+dtc -O dtb -o workspace/rocket64b4/system.dtb workspace/rocket64b4/system-rk-xcku5p.dts
+```
+
+Partition the card (replace `/dev/sdX` with your device — check `lsblk` first!):
+
+```bash
+sudo sgdisk --zap-all /dev/sdX
+sudo sgdisk --new=1:0:+200M --typecode=1:EF00 --change-name=1:BOOT /dev/sdX
+sudo sgdisk --new=2:0:0     --typecode=2:8300 --change-name=2:rootfs /dev/sdX
+sudo mkfs.vfat -F 32 -n BOOT /dev/sdX1
+sudo mkfs.ext4 -L rootfs /dev/sdX2
+```
+
+Populate the FAT boot partition:
+
+```bash
+sudo mkdir -p /mnt/boot
+sudo mount /dev/sdX1 /mnt/boot
+sudo cp workspace/boot.elf                                /mnt/boot/BOOT.ELF
+sudo cp linux-stable/arch/riscv/boot/Image                /mnt/boot/Image
+sudo cp workspace/rocket64b4/system.dtb                   /mnt/boot/system.dtb
+sudo mkdir -p /mnt/boot/extlinux
+sudo tee /mnt/boot/extlinux/extlinux.conf > /dev/null <<'EOF'
+DEFAULT linux
+LABEL linux
+    KERNEL /Image
+    FDT    /system.dtb
+    APPEND earlycon console=ttyAU0,115200n8 root=/dev/mmcblk0p2 rootfstype=ext4 rw rootwait locale.LANG=en_US.UTF-8
+EOF
+sudo umount /mnt/boot
+```
+
+Populate the ext4 rootfs:
+
+```bash
+sudo mkdir -p /mnt/rootfs
+sudo mount /dev/sdX2 /mnt/rootfs
+sudo tar -xzf debian-riscv64/rootfs.tar.gz -C /mnt/rootfs
+sudo umount /mnt/rootfs
 sync
 ```
 
-### Program the FPGA
+### 3. Program the QSPI Flash
 
-Via JTAG (one-time, volatile):
+Plug the board into USB-C and verify detection:
+
 ```bash
-make BOARD=rk-xcku5p CONFIG=rocket64b4 vivado-flash
+lsusb | grep 0403:6010
+# Bus 001 Device 002: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
 ```
 
-To program the QSPI flash for persistent boot:
+Start the Xilinx hardware server in a **separate terminal** (leave it running):
+
+```bash
+sudo /tools/Xilinx/Vitis/2023.2/bin/hw_server
+```
+
+> If you don't want to run `hw_server` as root every time, install the Digilent/Xilinx udev rules:
+> ```bash
+> sudo /tools/Xilinx/Vivado/2023.2/data/xicom/cable_drivers/lin64/install_script/install_drivers/install_drivers
+> sudo usermod -aG plugdev $USER
+> # log out and back in
+> ```
+> Afterward you can run `hw_server` without sudo.
+
+Then in your working terminal, program the QSPI flash:
+
 ```bash
 make BOARD=rk-xcku5p CONFIG=rocket64b4 flash
+```
+
+This takes ~5 minutes to erase, program, and verify the MX25U51245G flash.
+
+For a volatile JTAG-only load (bitstream lost on power-off — useful for iteration):
+
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b4 vivado-flash
 ```
 
 > **Warning:** Only use Vivado 2023.2. Using 2024.x or later will permanently lock the QSPI flash chip.
@@ -171,13 +260,69 @@ make BOARD=rk-xcku5p CONFIG=rocket64b4 flash
 
 ## Boot Sequence
 
-1. Insert MicroSD card with the Debian image
+1. Insert MicroSD card prepared with the Debian rootfs
 2. Connect the USB Type-C cable (FT2232HQ provides JTAG + UART)
-3. Open a serial terminal: `115200 8N1` — the FT2232 Channel B is the console
+3. Open a serial terminal on the FT2232 **Channel B** (see below)
 4. Power on via the barrel jack or PCIe slot
 5. FPGA loads bitstream from QSPI flash, then OpenSBI → U-Boot → Linux → Debian
 
-Default login: `root` / `root`
+### Opening the Serial Console
+
+The FT2232HQ exposes two USB-serial devices when the board is plugged in:
+
+- `/dev/ttyUSB0` → Channel A (JTAG — used by `hw_server`)
+- `/dev/ttyUSB1` → **Channel B (UART console)**
+
+Confirm the device appeared:
+
+```bash
+dmesg | tail -20 | grep ttyUSB
+# [...] usb 1-1: FTDI USB Serial Device converter now attached to ttyUSB0
+# [...] usb 1-1: FTDI USB Serial Device converter now attached to ttyUSB1
+```
+
+Open the console at **115200 8N1** with any of these tools (pick one you already have):
+
+```bash
+# picocom — recommended, lightweight
+sudo apt install picocom
+picocom -b 115200 /dev/ttyUSB1
+
+# screen
+screen /dev/ttyUSB1 115200
+
+# minicom
+minicom -D /dev/ttyUSB1 -b 115200
+
+# tio — modern alternative
+tio -b 115200 /dev/ttyUSB1
+```
+
+Exit keys: `Ctrl-A Ctrl-X` (picocom), `Ctrl-A K` (screen), `Ctrl-A Q` (minicom), `Ctrl-T Q` (tio).
+
+> If you get `Permission denied` on `/dev/ttyUSB1`, add yourself to the `dialout` group:
+> ```bash
+> sudo usermod -aG dialout $USER
+> ```
+> Then log out and back in.
+
+### Login
+
+Once Linux boots you will see a `debian login:` prompt on the serial console. Default credentials:
+
+| User | Password |
+|---|---|
+| `root` | `root` |
+| `debian` | `debian` |
+
+After login, verify the system:
+
+```bash
+uname -a               # should report riscv64 GNU/Linux
+cat /proc/cpuinfo      # shows 4 rv64imafdc harts
+df -h /                # rootfs on /dev/mmcblk0p2 (SD card ext4 partition)
+ip addr show eth0      # default 192.168.1.10
+```
 
 ---
 
@@ -206,6 +351,88 @@ A second UART is exposed on J1 pins 35/36 for use with external devices (3.3 V l
 | 38 | GND | — | Remote device GND |
 
 In the device tree this appears as `serial1`. Use at 115200 baud, 8N1.
+
+---
+
+## Troubleshooting
+
+### No output on the serial console
+
+Work through these checks in order:
+
+**1. Is the board powered and is the bitstream loaded?**
+- The "DONE" LED (white, near the FPGA) should light up a few seconds after power-on. If it's off, the QSPI flash does not contain a valid bitstream.
+- The on-board fan should spin and the power LED should be on.
+
+**2. Is the FT2232 USB actually connecting?**
+
+```bash
+lsusb | grep 0403:6010          # must show the FT2232H
+dmesg | tail -20 | grep ttyUSB  # confirms /dev/ttyUSB0 (JTAG) + /dev/ttyUSB1 (console)
+```
+
+If you only see `ttyUSB1`, that's normal when `hw_server` has grabbed Channel A exclusively. Channel B (`ttyUSB1`) is the console.
+
+**3. Did `hw_server` actually start?**
+
+```bash
+ss -tln | grep 3121             # must show LISTEN on :3121
+pgrep -af hw_server             # must show a running process
+```
+
+If not, start it in a **separate terminal** and **leave it running** (don't Ctrl-C):
+
+```bash
+sudo /tools/Xilinx/Vitis/2023.2/bin/hw_server
+```
+
+Running it foreground without `&` and then closing the terminal will kill it. Either use a dedicated terminal or prefix with `nohup ... &`.
+
+**4. Did the QSPI flash actually program?**
+
+After `make flash` completes, you must **power-cycle** (full power-off, not just reset) for the FPGA to re-read QSPI. Then check the DONE LED.
+
+Verify the flash content via `xsdb`:
+
+```bash
+env HW_SERVER_URL=tcp:localhost:3121 xsdb -quiet board/jtag-freq.tcl
+```
+
+**5. Is the SD card layout correct?**
+
+The bootrom (embedded in the bitstream) loads `BOOT.ELF` from the **first FAT partition**. The filename is case-sensitive — it must be exactly `BOOT.ELF`. Confirm:
+
+```bash
+sudo mount /dev/sdX1 /mnt/boot
+ls -la /mnt/boot/
+# Must contain: BOOT.ELF, Image, system.dtb, extlinux/extlinux.conf
+sudo umount /mnt/boot
+```
+
+If the bitstream loads (DONE LED on) but `BOOT.ELF` is missing, you'll see nothing on the console because the bootrom prints its error message *after* it initializes the UART — but if the UART clock isn't configured yet, the error is silent.
+
+**6. Still nothing?** Try loading everything via JTAG (bypasses QSPI + SD FAT):
+
+```bash
+# Build the initrd ramdisk (needed for jtag-boot)
+make debian-riscv64/ramdisk
+
+# Load bitstream + kernel + ramdisk directly via JTAG
+make BOARD=rk-xcku5p CONFIG=rocket64b4 JTAG_BOOT=1 jtag-boot
+```
+
+This streams the bitstream, boot.elf, Image, and ramdisk over JTAG into FPGA memory, then releases reset. You should immediately see OpenSBI banner text. If this works but `make flash` boot does not, the issue is in the SD card or QSPI contents, not the bitstream itself.
+
+### Permission denied on `/dev/ttyUSB1`
+
+```bash
+sudo usermod -aG dialout $USER
+# log out and back in
+```
+
+### `xsdb: command not found` with sudo
+
+`sudo` strips the Vivado PATH. Either use `sudo -E`, or install the udev rules (see step 3 above) and run `hw_server` without sudo.
 
 ---
 
