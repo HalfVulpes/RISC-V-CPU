@@ -1,256 +1,242 @@
-# vivado-risc-v
+# RISC-V Linux SoC — RIGUKE RK-XCKU5P-F
 
-# AMD/Xilinx Vivado block designs for FPGA RISC-V SoC running Debian Linux distro.
+A RISC-V Linux server running Debian on the **RIGUKE RK-XCKU5P-F V1.2** FPGA board.  
+Includes Gigabit Ethernet, MicroSD, UART console, and DDR4 memory — ready to boot out of the box.
 
-This repository contains FPGA prototype of fully functional [RISC-V](https://riscv.org/) Linux server
-with networking, online Linux package repository and daily package updates.
-It includes scripts and sources to generate RISC-V SoC HDL, AMD/Xilinx Vivado project, FPGA bitstream, and bootable SD card.
-The SD card contains [RISC-V Open Source Supervisor Binary Interface (OpenSBI)](https://github.com/riscv/opensbi), [U-Boot](https://github.com/u-boot/u-boot), [Linux kernel](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/) and [Debian root FS](https://wiki.debian.org/RISC-V).
-Linux package repositories and regular updates are provided by [Debian](https://wiki.debian.org/RISC-V).
-Over 90% of packages of the whole Debian collection are available for download.
+![RK-XCKU5P Board](assets/rk_ku5p_board.jpg)
 
-Also can be used to run [bare-metal](https://github.com/eugene-tarassov/vivado-risc-v/tree/master/bare-metal) or RTOS software.
+---
 
-The project is used as reference design to validate RISC-V support in [Eclipse TCF](https://wiki.eclipse.org/TCF/RISC-V).
+## Board Overview
 
-AMD/Xilinx tools support debugging of RISC-V software over JTAG.
+| | |
+|---|---|
+| **FPGA** | AMD Kintex UltraScale+ XCKU5P-2FFVB676I |
+| **Logic Cells** | 475K system logic cells, 217K LUTs, 434K FFs |
+| **DSP Slices** | 1,824 |
+| **Memory** | 2 GB DDR4 SDRAM (2× Micron MT40A512M16LY-062E, 32-bit bus) |
+| **Flash** | 64 MB QSPI NOR (Macronix MX25U51245GZ4I00, 1.8 V) |
+| **System Clock** | 200 MHz differential (SG3225VAN, Bank 65) |
+| **Ethernet** | Realtek RTL8211F-CG, 10/100/1000 Mbps RGMII |
+| **Storage** | MicroSD (4-bit SD mode, up to 50 MHz) |
+| **UART/JTAG** | FTDI FT2232HQ via USB Type-C |
+| **PCIe** | PCIe 3.0 x4 (x8 slot, electrical x4) |
+| **Form Factor** | PCIe card, 131 × 107 mm |
+| **Temperature** | Industrial −40 °C to +100 °C |
 
-# Prerequisites
+![Board Dimensions](assets/board_dimensions.png)
 
-## Hardware
-[AMD VC707](https://www.xilinx.com/products/boards-and-kits/ek-v7-vc707-g.html) or
-[AMD KC705](https://www.xilinx.com/products/boards-and-kits/ek-k7-kc705-g.html) or
-[Digilent Genesys 2](https://digilent.com/reference/programmable-logic/genesys-2/start) or
-[Digilent Nexys Video](https://digilent.com/reference/programmable-logic/nexys-video/start) or
-[Digilent Nexys A7 100T](https://digilent.com/reference/programmable-logic/nexys-a7/start) or
-[Digilent Arty A7 100T](https://digilent.com/reference/programmable-logic/arty-a7/start) board.
+---
 
-VC707 allows to prototype more powerful system: up to 8 64-bit RISC-V cores, up to 100MHz clock speed, 1GB RAM.
+## RISC-V SoC Configuration
 
-KC705 and Genesys 2 are as fast as VC707, but have slightly smaller FPGA - up to 4 cores.
+| | |
+|---|---|
+| **Architecture** | 64-bit RISC-V (RV64GC) |
+| **Recommended cores** | 4 (rocket64b4) |
+| **Maximum cores** | 4 (limited by LUT budget at practical clock rates) |
+| **CPU clock** | 100 MHz (clk_wiz from 200 MHz system clock) |
+| **Ethernet MAC clock** | 125 MHz / 125 MHz @90° (for RGMII USE_CLK90) |
+| **RAM visible to Linux** | 2 GB (DDR4 at address 0x00000000) |
+| **Vivado version** | **2023.2 only** — newer versions lock the QSPI flash |
 
-Nexys Video is several times less expensive, academic discount is avaialble. It supports up to 2 cores, up to 50MHz clock speed.
+> **Note on Vivado version:** A hardware design flaw causes the MX25U51245G QSPI flash to lock itself permanently when programmed with Vivado 2024.x or later. Always use **Vivado 2023.2** for this board.
 
-Nexys A7 100T and Arty A7 100T are least expensive supported boards. They have small and slow FPGA, barely enough to run Linux on a single core RISC-V at 50MHz.
+---
 
-## Workstation
-[Ubuntu 20.04 or 24.04 LTS](https://ubuntu.com/download/desktop) machine with min 32GB RAM.
-sudo access required. Other versions or distributions of Linux are not supported in this repo.
+## Peripheral Map (as seen by Linux)
 
-Alternatively, a Windows 11 machine with Ubuntu on Windows can be used to run the tools, see [Running RISC-V tools on Windows](docs/ubuntu-on-windows.md).
+| Address | Device | Driver |
+|---|---|---|
+| `0x60000000` | SD card controller | `riscv,axi-sd-card-1.0` |
+| `0x60010000` | UART (console) | `riscv,axi-uart-1.0` |
+| `0x60020000` | Gigabit Ethernet DMA | `riscv,axi-ethernet-1.0` |
+| `0x00000000` | DDR4 SDRAM (2 GB) | — |
 
-## Software
-Download and install AMD/Xilinx
-[Vitis](https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/vitis.html).
-Supported Vitis versions are 2020.2, 2021.1, 2021.2, 2022.1, 2022.2, 2023.1, 2023.2, 2024.1, 2024.2, 2025.1, 2025.2.
-Vitis installation includes Vivado Design Suite - there is no need to install Vivado separately.
+IRQs: UART=1, SD=2, Ethernet=3.  
+Ethernet PHY mode: `rgmii-rxid` (RTL8211F default RXDLY=1, no TX delay).  
+Default IP: `192.168.1.10` — set your host to `192.168.1.102/24`.
 
-Nexys Video, Nexys A7 100T and Arty A7 100T are supported by free version of Vivado. KC705, VC707 and Genesys 2 require Vivado license.
+---
 
-If using a Digilent board, install [Vivado Board Files for Digilent FPGA Boards](https://github.com/Digilent/vivado-boards).
+## 40-Pin Expansion Connector (J1)
 
-# Usage
+The 2.54 mm 2×20 header exposes 17 differential pairs across Banks 86 and 87 (3.3 V fixed, LVCMOS33).  
+**IO17 (pins 35/36) is assigned as the external UART port** for a second serial console or GPIO UART.
 
-## Checkout the repository, install required packages and update submodules
 ```
-sudo apt install git make
-git clone https://github.com/eugene-tarassov/vivado-risc-v.git
+Pin  Signal      FPGA Pin   Notes
+───────────────────────────────────────────────
+  1  —            —          (reserved/GND)
+  2  +5 V         —          Power output
+  3  IO1_N        D10        Bank 86
+  4  IO1_P        D11        Bank 86
+  5  IO2_N        E10        Bank 86
+  6  IO2_P        E11        Bank 86
+  7  IO3_N        B11        Bank 86
+  8  IO3_P        C11        Bank 86
+  9  IO4_N        C9         Bank 86
+ 10  IO4_P        D9         Bank 86
+ 11  IO5_N        A9         Bank 86
+ 12  IO5_P        B9         Bank 86
+ 13  IO6_N        A10        Bank 86
+ 14  IO6_P        B10        Bank 86
+ 15  IO7_N        A12        Bank 87
+ 16  IO7_P        A13        Bank 87
+ 17  IO8_N        A14        Bank 87
+ 18  IO8_P        B14        Bank 87
+ 19  IO9_N        C13        Bank 87
+ 20  IO9_P        C14        Bank 87
+ 21  IO10_N       B12        Bank 87
+ 22  IO10_P       C12        Bank 87
+ 23  IO11_N       D13        Bank 87
+ 24  IO11_P       D14        Bank 87
+ 25  IO12_N       E12        Bank 87
+ 26  IO12_P       E13        Bank 87
+ 27  IO13_N       F13        Bank 87
+ 28  IO13_P       F14        Bank 87
+ 29  IO14_N       F12        Bank 87
+ 30  IO14_P       G12        Bank 87
+ 31  IO15_N       G14        Bank 87
+ 32  IO15_P       H14        Bank 87
+ 33  IO16_N       J14        Bank 87
+ 34  IO16_P       J15        Bank 87
+ 35  IO17_N/RX    H13   <-- External UART RX (connect to remote TX)
+ 36  IO17_P/TX    J13   <-- External UART TX (connect to remote RX)
+ 37  GND          —
+ 38  GND          —
+ 39  +3.3 V       —          Power output
+ 40  +3.3 V       —          Power output
+```
+
+> **Warning:** Banks 86/87 are fixed at 3.3 V. Do not apply voltages above 3.3 V. Do not connect 3.3 V signals to HP bank pins.
+
+---
+
+## Build Instructions
+
+### Prerequisites
+
+- **OS:** Ubuntu 20.04 or 24.04 LTS (min 32 GB RAM)
+- **Vivado:** 2023.2 with a device license for Kintex UltraScale+
+
+Clone the repository with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/HalfVulpes/vivado-risc-v.git
 cd vivado-risc-v
-make apt-install
-make update-submodules
 ```
 
-## Build FPGA bitstream
-```
-source /opt/Xilinx/2025.2/Vivado/settings64.sh
-make CONFIG=rocket64b2 BOARD=nexys-video bitstream
-```
-For KC705, use `BOARD=kc705`
+### Build the FPGA Bitstream
 
-For VC707, use `BOARD=vc707`
-
-For Genesys 2 use `BOARD=genesys2`
-
-For Nexys A7 100T use `BOARD=nexys-a7-100t`
-
-For Arty A7 100T use `BOARD=arty-a7-100t`
-
-Some of available CONFIG values (See [rocket.scala](https://github.com/eugene-tarassov/vivado-risc-v/blob/master/src/main/scala/rocket.scala)):
-* 64-bit big RISC-V cores, Linux capable:
-  * `rocket64b1` - 1 core
-  * `rocket64b2` - 2 cores
-  * `rocket64b2l2` - 2 cores with 512KB level 2 cache
-  * `rocket64b2gem` - 2 cores with 512KB level 2 cache and Gemmini accelerator
-  * `rocket64b4l2w` - 4 cores with 512KB level 2 cache and wide 256-bit memory bus
-  * `rocket64b4` - 4 cores
-  * `rocket64b8` - 8 cores
-* 64-bit Sonic BOOM cores, Linux capable:
-  * `rocket64w1` - 1-wide Small BOOM, 1 core
-  * `rocket64x1` - 2-wide superscalar Medium BOOM, 1 core
-  * `rocket64y1` - 3-wide superscalar Large BOOM, 1 core
-  * `rocket64z1` - 4-wide superscalar Mega BOOM, 1 core
-* 32-bit small RISC-V cores, Linux not supported:
-  * `rocket32s1` - 1 core
-  * `rocket32s2` - 2 cores
-  * `rocket32s4` - 4 cores
-  * `rocket32s8` - 8 cores
-  * `rocket32s16` - 16 cores
-
-FPGA utilization, LUTs:
-* 32-bit small RISC-V: 10,800 + 6,100 per core
-* 64-bit big RISC-V: 10,800 + 27,500 per core
-* 2-wide superscalar Medium BOOM, 1 core, L2 cache: 148,500
-* 3-wide superscalar Large BOOM, 1 core, L2 cache: 252,700
-
-## Prepare the SD card
-Use USB SD card reader to connect SD card to the workstation, and run:
-```
-./mk-sd-card
-```
-The script looks for USB memory device and asks confirmation before using it.
-Make sure to confirm right SD card device - all old data will be erased.
-
-## Booting Linux with QEMU (optional)
-In some cases when Linux runs slow on the FPGA, especially designs with lower clock speeds or no ethernet access), it might be worth it to first install the dependencies quickly before running it on FPGA.
-
-You can run the following:
-```
-./qemu/boot_qemu.sh
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b4 bitstream
 ```
 
-The script will check for the existance of a debian image under `debian-riscv64/` and run `./mk-sd-image` as needed. Then it will clone and make a suitable version of u-boot and opensbi for QEMU before finally booting Linux.
+This generates `workspace/rk-xcku5p/rocket64b4/vivado/system.bit`.
 
-Once Linux has booted successfully on QEMU, you can also easily ssh and scp too:
-```
-ssh -p2222 debian@localhost
-```
-
-Once all this is done, you can make the sd card without making the image:
-```
-./mk-sd-card skip_mk_img
+For a 2-core build (faster synthesis):
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b2 bitstream
 ```
 
-## Program the FPGA flash memory
-```
-source /opt/Xilinx/2025.2/Vivado/settings64.sh
-make CONFIG=rocket64b2 BOARD=nexys-video flash
-```
-Alternatively, [flash memory can be programmed using Vivado GUI](docs/vivado-flash.md).
+### Build the SD Card Image
 
-## Linux login
-
-Host name: debian
-
-User login and password: debian debian
-
-Root login and password: root root
-
-You can login over UART console:
-```
-sudo miniterm /dev/ttyUSB0 115200
-```
-or, after Linux boot, over SSH:
-```
-ssh debian@debian
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b4 debian-riscv64-micro.img
 ```
 
-## Modding the design (optional): adding a peripheral device
+Flash to a MicroSD card (replace `/dev/sdX` with your device):
 
-### Use Vivado Block Design to add an IP
-
-Open Vivado:
-```
-source /opt/Xilinx/2025.2/Vivado/settings64.sh
-make CONFIG=rocket64b2 BOARD=nexys-video vivado-gui
-```
-The IO block in the design is the best place to add device controllers, like GPIO.
-See AXI Uartlite as an example, connect your IP to AXI interconnect and interrupts.
-Validate and synthesize the design, but don't build bitstream yet - device tree and RISC-V HDL need to be updated first.
-
-Close Vivado.
-
-### Check the device driver is enabled in patches/linux.config
-
-For example, for AMD/Xilinx GPIO, the config should contain line:
-```
-CONFIG_GPIO_XILINX=y
+```bash
+sudo dd if=debian-riscv64-micro.img of=/dev/sdX bs=4M status=progress
+sync
 ```
 
-If necessary, change config, then rebuild Linux kernel and bootloader:
+### Program the FPGA
+
+Via JTAG (one-time, volatile):
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b4 vivado-flash
 ```
-make linux bootloader
-./mk-sd-image -r debian-riscv64-boot
+
+To program the QSPI flash for persistent boot:
+```bash
+make BOARD=rk-xcku5p CONFIG=rocket64b4 flash
 ```
-Copy debian-riscv64-boot/extlinux directory to the SD card.
 
-Note: don't change files in the project submodules: linux-stable, u-boot, opensbi or rocket-chip.
-Such changes are lost when the project is rebuilt.
+> **Warning:** Only use Vivado 2023.2. Using 2024.x or later will permanently lock the QSPI flash chip.
 
-For details on AMD/Xilinx drivers, see [Linux Drivers](https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841873/Linux%2BDrivers).
+---
 
-### Edit board/nexys-video/bootrom.dts
+## Boot Sequence
 
-Add device description in the "io-bus {...}" section.
-For example, GPIO description can look like this:
+1. Insert MicroSD card with the Debian image
+2. Connect the USB Type-C cable (FT2232HQ provides JTAG + UART)
+3. Open a serial terminal: `115200 8N1` — the FT2232 Channel B is the console
+4. Power on via the barrel jack or PCIe slot
+5. FPGA loads bitstream from QSPI flash, then OpenSBI → U-Boot → Linux → Debian
+
+Default login: `root` / `root`
+
+---
+
+## Ethernet
+
+Connect a Cat5e/Cat6 cable to the RJ45 port.  
+The RTL8211F PHY negotiates 10/100/1000 Mbps automatically.
+
+Default IP: `192.168.1.10`  
+Set your host: `192.168.1.102`, netmask `255.255.255.0`
+
+```bash
+ssh root@192.168.1.10
 ```
-        gpio: gpio@60030000 {
-            #gpio-cells = <2>;
-            compatible = "xlnx,xps-gpio-1.00.a";
-            gpio-controller ;
-            interrupt-parent = <&L2>;
-            interrupts = <4>;
-            reg = < 0x60030000 0x10000 >;
-            xlnx,all-inputs = <0x0>;
-            xlnx,dout-default = <0x0>;
-            xlnx,gpio-width = <0x8>;
-            xlnx,interrupt-present = <0x1>;
-            xlnx,is-dual = <0>;
-            xlnx,tri-default = <0xffffffff>;
-        };
-```
-Make sure the description matches your design. In particular, check addresses and interrupt numbers.
 
-### Rebuild FPGA bitstream
-```
-make CONFIG=rocket64b2 BOARD=nexys-video bitstream
-```
-Program the FPGA or the board flash memory.
+---
 
-# Prebuilt images
+## External UART (40-Pin Connector)
 
-Prebuilt FPGA bitstream and SD card image are available in the [releases area](https://github.com/eugene-tarassov/vivado-risc-v/releases).
+A second UART is exposed on J1 pins 35/36 for use with external devices (3.3 V logic only):
 
-# Notes
+| J1 Pin | Signal | FPGA | Connect to |
+|---|---|---|---|
+| 35 | EXT_RX (IO17_N) | H13 | Remote device TX |
+| 36 | EXT_TX (IO17_P) | J13 | Remote device RX |
+| 38 | GND | — | Remote device GND |
 
-Rocket Chip is used as RISC-V implementation: [UC Berkeley Architecture Research - Rocket Chip Generator](https://bar.eecs.berkeley.edu/projects/rocket_chip.html).
-Rocket Chip is configured to include virtual memory, instruction and data caches, coherent interconnect, floating point, and all the relevant infrastructure.
-See [rocket.scala](https://github.com/eugene-tarassov/vivado-risc-v/blob/master/src/main/scala/rocket.scala) for Rocket Chip configuration classes.
+In the device tree this appears as `serial1`. Use at 115200 baud, 8N1.
 
-RISC-V SoC in this repo contains bootrom, which differ from original Rocket Chip bootrom.
-The modified bootrom contains SD card boot loader and extended device tree.
+---
 
-RISC-V SoC in this repo contains DDR, UART, SD and Ethernet controllers.
-DDR is provided by Vivado. UART, SD and Ethernet are open source Verilog.
+## Board Files
 
-SD controller implements SD HS (High Speed) specs, 25MB/s read/write speed.
+All board support files are in [`board/rk-xcku5p/`](board/rk-xcku5p/):
 
-Ethernet controller is based on [Verilog Ethernet Components](https://github.com/alexforencich/verilog-ethernet) project,
-which is a collection of Ethernet-related components for gigabit, 10G, and 25G packet processing.
+| File | Description |
+|---|---|
+| `Makefile.inc` | Part number, flash config, 2 GB memory size |
+| `top.xdc` | Bitstream config, 200 MHz diff clock, reset |
+| `uart.xdc` | FT2232HQ UART + 40-pin external UART |
+| `sdc.xdc` | MicroSD card pins |
+| `ethernet.xdc` | RGMII pins and timing (Bank 66, 1.8 V) |
+| `bootrom.dts` | Linux device tree for SoC peripherals |
+| `ethernet-rk-xcku5p.v` | UltraScale+ RGMII MAC wrapper (BUFG + USE_CLK90) |
+| `ethernet-rk-xcku5p.tcl` | Vivado source/constraint file adder |
+| `riscv-2023.2.tcl` | Complete IPI block design (Vivado 2023.2) |
 
-Linux kernel and U-Boot use device tree, which is stored in RISC-V bootrom in FPGA.
-So, same SD card should boot OK on any board or RISC-V configuration.
+---
 
-Nexys Video and Nexys A7 boards can be configured to [load FPGA bitstream from SD card](https://reference.digilentinc.com/reference/programmable-logic/nexys-video/reference-manual#usb_host_and_micro_sd_programming).
+## Technical Notes
 
-The device tree contains Ethernet MAC address, which is not unique.
-It might be necessary to rebuild bitstream with different MAC, see Makefile for details.
+**HP Bank RGMII (Bank 66):**  
+HP banks lack BUFR and ODELAYE3. The RGMII wrapper uses `CLOCK_INPUT_STYLE="BUFG"` and `USE_CLK90="TRUE"` — the 90° TX clock is supplied by clk_wiz_0 output 3.
 
-If not using provided SD card image: the bootrom loads and executes boot.elf file from SD card DOS partition.
-boot.elf is regular executable ELF, it can contain any software suitable for RISC-V RV64 M mode.
-In case of Linux boot, boot.elf contains OpenSBI and U-Boot.
+**Single 200 MHz clock for DDR4 and user logic:**  
+The block design uses two separate BD interface ports (`sys_diff_clock` and `ddr4_sys_clk`) both mapped to pins T24/U24. Vivado merges the IBUFDS at implementation.
 
-The Makefile creates Vivado project directory, e.g. workspace/rocket64b2/vivado-nexys-video-riscv.
-You can open the project in Vivado GUI to see RISC-V SoC structure, make changes, add peripherals, rebuild the bitstream.
-The SoC occupies portion of FPGA, leaving plenty of space for experiments and developing additional hardware.
+**DDR4 reset:**  
+The UltraScale+ DDR4 IP exposes `c0_ddr4_ui_clk_sync_rst` (active high). A `util_vector_logic` NOT gate converts it to `aresetn` for AXI peripherals. The 7-series `mem_reset_control` module is not used.
 
-RISC-V SoC in this repo uses BSCAN block to support both RISC-V debugging and FPGA access over same JTAG cable.
+**Maximum core count:**  
+4 cores (rocket64b4) fits within the LUT budget at 100 MHz. More cores are possible at lower clock frequencies, but 4 cores is the recommended maximum for reliable timing closure.

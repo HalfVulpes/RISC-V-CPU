@@ -1,0 +1,4 @@
+XILINX_PART ?= xcku5p-ffvb676-2-i
+CFG_DEVICE  ?= SPIx4 -size 64
+CFG_PART    ?= mx25u51245g-spi-x1_x2_x4
+MEMORY_SIZE ?= 0x80000000
