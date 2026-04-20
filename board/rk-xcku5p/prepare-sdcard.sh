@@ -78,8 +78,11 @@ sgdisk --zap-all "${DEV}"
 # to silently skip the partition with "Not a valid FAT volume".
 sgdisk --new=1:0:+200M --typecode=1:0700 --change-name=1:BOOT   "${DEV}"
 sgdisk --new=2:0:0     --typecode=2:8300 --change-name=2:rootfs "${DEV}"
-partprobe "${DEV}"
-sleep 2
+
+# Force the kernel to re-read the partition table, then wait for udev.
+blockdev --rereadpt "${DEV}"  2>/dev/null || true
+partprobe "${DEV}"            2>/dev/null || true
+udevadm settle --timeout=10   2>/dev/null || true
 
 # Partition device names differ for sd* vs mmcblk*/nvme*
 if [[ "${DEV}" =~ [0-9]$ ]]; then
@@ -87,6 +90,17 @@ if [[ "${DEV}" =~ [0-9]$ ]]; then
 else
   P1="${DEV}1";  P2="${DEV}2"
 fi
+
+# Wait up to 10 s for the partition nodes to appear.
+for _ in $(seq 1 10); do
+  [[ -b "${P1}" && -b "${P2}" ]] && break
+  sleep 1
+  partprobe "${DEV}" 2>/dev/null || true
+  udevadm settle --timeout=5 2>/dev/null || true
+done
+
+[[ -b "${P1}" ]] || err "partition ${P1} did not appear. Try unplugging/replugging the card and rerun."
+[[ -b "${P2}" ]] || err "partition ${P2} did not appear. Try unplugging/replugging the card and rerun."
 
 # --- filesystems ---
 info "Formatting ${P1} as FAT32"
