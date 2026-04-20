@@ -68,9 +68,8 @@
     Organization  : 512 Mrows x 16-bit per chip = 1 GB each, 2 GB total
     Bus Width     : 32-bit (2 chips in parallel, x16 each)
     Max Speed     : DDR4-3200 (062E speed grade) -- run at DDR4-2666 here
-    FPGA Banks    : HP Bank 64 (DQ[0:15], DM/DQS for bytes 0-1)
-                    HP Bank 65 (addr/ctrl/clock and DQ[16:31], DM/DQS for
-                                bytes 2-3 -- yes, DQs split across banks)
+    FPGA Banks    : HP Bank 64 (all DQ[0:31], DM/DQS bytes 0-3)
+                    HP Bank 65 (addr/ctrl/clock only)
 
   [CRITICAL] MIG IP CONFIGURATION
     The MT40A512M16LY-062E part is NOT in the Vivado 2023.2 catalog.
@@ -95,36 +94,39 @@
        C0.DDR4_OutputDriverImpedenceControl  RZQ/7
        C0.DDR4_OnDieTermination      RZQ/6
 
-  DDR4 Pinout (authoritative -- from factory MIG XDC)
-    Controls:
-       sys_clk_p  = T24      sys_clk_n = U24   (DIFF_SSTL12, shared with user PLL)
-       act_n      = Y21
-       cs_n[0]    = AE16
-       cke[0]     = AE18
-       odt[0]     = AE26
-       reset_n    = AC16
-       ba[0]      = AE17     ba[1]     = AF17
-       bg[0]      = AD16     (x16 parts: no bg[1])
-       ck_t[0]    = AA22     ck_c[0]   = AB22
-    Address [0:16]:
-       adr[0]  = AE22  adr[1]  = AF22  adr[2]  = AD23  adr[3]  = AE23
-       adr[4]  = AC22  adr[5]  = AC23  adr[6]  = AB21  adr[7]  = AC21
-       adr[8]  = AF20  adr[9]  = AD20  adr[10] = AE20  adr[11] = AC19
-       adr[12] = AD19  adr[13] = AF18  adr[14] = AF19  adr[15] = AC18
-       adr[16] = AD18
+  DDR4 Pinout (authoritative -- from KU5P_DEMO/06_DDR_AXI/Constraint/Phy_Pin.xdc)
+    Do NOT use ddr4_0_ex/imports/example_design.xdc -- that file has MIG's
+    placeholder example pins, not the real board wiring.
+
+    Controls (Bank 65):
+       sys_clk_p  = T24      sys_clk_n = U24   (DIFF_SSTL12)
+       act_n      = P24
+       cs_n[0]    = P25
+       cke[0]     = P20
+       odt[0]     = R23
+       reset_n    = P19
+       ba[0]      = P21      ba[1]     = P26
+       bg[0]      = R22      (x16 parts: no bg[1])
+       ck_t[0]    = V24      ck_c[0]   = W24
+    Address [0:16]  (adr[14..16] = WE_B/CAS_B/RAS_B multiplexed):
+       adr[0]  = Y22   adr[1]  = Y25   adr[2]  = W23   adr[3]  = V26
+       adr[4]  = R26   adr[5]  = U26   adr[6]  = R21   adr[7]  = W25
+       adr[8]  = R20   adr[9]  = Y26   adr[10] = R25   adr[11] = V23
+       adr[12] = AA24  adr[13] = W26   adr[14] = P23   adr[15] = AA25
+       adr[16] = T25
     DQS pairs (T/C):
-       dqs[0]  = AC26/AD26   dqs[1]  = AB17/AC17
-       dqs[2]  = V21 /V22    dqs[3]  = W25 /W26
-    Data mask:
-       dm_n[0] = AE25  dm_n[1] = Y20   dm_n[2] = U19   dm_n[3] = Y22
+       dqs[0]  = AC26/AD26   dqs[1]  = AA22/AB22
+       dqs[2]  = AC18/AD18   dqs[3]  = AB17/AC17
+    Data mask (Bank 64):
+       dm_n[0] = AE25  dm_n[1] = AE22  dm_n[2] = AD20  dm_n[3] = Y20
     Data byte 0 (Bank 64, DQ[0:7]):
-       AB25 AB26 AF24 AF25 AD24 AD25 AB24 AC24
+       AF24 AF25 AD24 AB26 AC24 AB25 AD25 AB24
     Data byte 1 (Bank 64, DQ[8:15]):
-       AA19 AB19 AA20 AB20 Y17  AA17 Y18  AA18
-    Data byte 2 (Bank 65, DQ[16:23]):
-       U21  U22  T20  U20  T22  T23  W19  W20
-    Data byte 3 (Bank 65, DQ[24:31]):
-       Y25  Y26  AA24 AA25 V23  W23  V24  W24
+       AC21 AD23 AD21 AC22 AB21 AE23 AE21 AC23
+    Data byte 2 (Bank 64, DQ[16:23]):
+       AE16 AD19 AD16 AF17 AC19 AF19 AF18 AE17
+    Data byte 3 (Bank 64, DQ[24:31]):
+       AA20 AA18 AA19 Y18  AB20 Y17  AB19 AA17
 
   QSPI Flash:
     Chip          : MX25U51245GZ4I00 (Macronix)
@@ -340,8 +342,9 @@
              "MT40A512M16LY-075". The LY-075 timing model does not match the
              actual LY chips on this board and will fail DQS_GATE calibration.
 
-  [CRITICAL] MIPI data lanes (T20/T22/T23/U19-U22/V21/V22) OVERLAP with DDR4
-             Byte 2/3 DQ/DQS pins. A design cannot use both peripherals.
+  [WARNING]  MIPI data-lane pins (T20/T22/T23/U19-U22/V21/V22) may overlap
+             with some board-level routing. Verify against the schematic
+             before enabling both MIPI and DDR4 in the same design.
 
   [WARNING]  RTL8211F PHY reset (PHYRSTB) and interrupt (INTB) are NOT wired
              to FPGA GPIO -- they use on-board pull-ups only.
@@ -442,8 +445,9 @@
   Bank | Type | VCCO  | Signals
   -----+------+-------+----------------------------------------------------------
    64  |  HP  | 1.2 V | DDR4 DQ[0:15], DM[0:1], DQS[0:1] P/N
-   65  |  HP  | 1.2 V | DDR4 addr/ctrl/clock + DQ[16:31] + DM[2:3] + DQS[2:3],
-                      | SYS_CLK P/N, MIPI lanes (if used), PCIE_PERST_N
+   65  |  HP  | 1.2 V | DDR4 addr/ctrl/clock (no DQ), SYS_CLK P/N,
+                      | MIPI lanes (if used -- overlap with unused DDR4 addr),
+                      | PCIE_PERST_N
    66  |  HP  | 1.8 V | Ethernet RGMII, FMC LA[00-16] P/N, FMC CLK0 P/N,
                       | MIPI camera ctrl
    67  |  HP  | 1.8 V | FMC LA[17-33] P/N, FMC CLK1 P/N

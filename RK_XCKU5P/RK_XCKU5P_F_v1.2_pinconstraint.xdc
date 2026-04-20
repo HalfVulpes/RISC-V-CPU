@@ -274,10 +274,12 @@ set_property IOSTANDARD LVCMOS12 [get_ports pcie_perst_n]
 #   -  Speed grade -062E = DDR4-3200 capable; run at DDR4-2666 (750 ps, CL19)
 #   -  x16 parts have ONE bank group line only (BG[0]); no BG[1].
 #
-# FACTORY-VERIFIED pinout (from KU5P_DEMO/06_DDR_AXI/ddr4_0_ex/imports/
-# example_design.xdc). DQs split across Bank 64 (bytes 0/1) and Bank 65
-# (bytes 2/3). Reset signal at AC16, not P19 (earlier reference material
-# was stale/aspirational).
+# FACTORY-VERIFIED pinout (from KU5P_DEMO/06_DDR_AXI/Constraint/Phy_Pin.xdc,
+# the actual board-level constraint file used by the working demo).
+#
+# NOTE: Do NOT use ddr4_0_ex/imports/example_design.xdc as a reference -- that
+# file contains MIG's STANDALONE example-design placeholder pins (e.g. AD21/AE21
+# for sys_clk), not the real board wiring. All DDR4 data pins are in Bank 64.
 #
 # MIG IP CONFIGURATION:
 #   C0.DDR4_MemoryPart = MT40A512M16HA-075E   -- NOT "-LY-075"; the HA silicon
@@ -297,87 +299,87 @@ set_property IOSTANDARD LVCMOS12 [get_ports pcie_perst_n]
 # (uncomment to use). MIG uses the exact same pinout either way because of the
 # byte-group constraints imposed by the UltraScale+ architecture.
 ##############################################################################
-# -- Address [0:16], Bank 65
-# set_property PACKAGE_PIN AE22 [get_ports {ddr4_adr[0]}]
-# set_property PACKAGE_PIN AF22 [get_ports {ddr4_adr[1]}]
-# set_property PACKAGE_PIN AD23 [get_ports {ddr4_adr[2]}]
-# set_property PACKAGE_PIN AE23 [get_ports {ddr4_adr[3]}]
-# set_property PACKAGE_PIN AC22 [get_ports {ddr4_adr[4]}]
-# set_property PACKAGE_PIN AC23 [get_ports {ddr4_adr[5]}]
-# set_property PACKAGE_PIN AB21 [get_ports {ddr4_adr[6]}]
-# set_property PACKAGE_PIN AC21 [get_ports {ddr4_adr[7]}]
-# set_property PACKAGE_PIN AF20 [get_ports {ddr4_adr[8]}]
-# set_property PACKAGE_PIN AD20 [get_ports {ddr4_adr[9]}]
-# set_property PACKAGE_PIN AE20 [get_ports {ddr4_adr[10]}]
-# set_property PACKAGE_PIN AC19 [get_ports {ddr4_adr[11]}]
-# set_property PACKAGE_PIN AD19 [get_ports {ddr4_adr[12]}]
-# set_property PACKAGE_PIN AF18 [get_ports {ddr4_adr[13]}]
-# set_property PACKAGE_PIN AF19 [get_ports {ddr4_adr[14]}]
-# set_property PACKAGE_PIN AC18 [get_ports {ddr4_adr[15]}]
-# set_property PACKAGE_PIN AD18 [get_ports {ddr4_adr[16]}]
+# -- Address [0:16]  (ADR[14:16] = WE_B/CAS_B/RAS_B under ACT_N high)
+# set_property PACKAGE_PIN Y22  [get_ports {ddr4_adr[0]}]
+# set_property PACKAGE_PIN Y25  [get_ports {ddr4_adr[1]}]
+# set_property PACKAGE_PIN W23  [get_ports {ddr4_adr[2]}]
+# set_property PACKAGE_PIN V26  [get_ports {ddr4_adr[3]}]
+# set_property PACKAGE_PIN R26  [get_ports {ddr4_adr[4]}]
+# set_property PACKAGE_PIN U26  [get_ports {ddr4_adr[5]}]
+# set_property PACKAGE_PIN R21  [get_ports {ddr4_adr[6]}]
+# set_property PACKAGE_PIN W25  [get_ports {ddr4_adr[7]}]
+# set_property PACKAGE_PIN R20  [get_ports {ddr4_adr[8]}]
+# set_property PACKAGE_PIN Y26  [get_ports {ddr4_adr[9]}]
+# set_property PACKAGE_PIN R25  [get_ports {ddr4_adr[10]}]
+# set_property PACKAGE_PIN V23  [get_ports {ddr4_adr[11]}]
+# set_property PACKAGE_PIN AA24 [get_ports {ddr4_adr[12]}]
+# set_property PACKAGE_PIN W26  [get_ports {ddr4_adr[13]}]
+# set_property PACKAGE_PIN P23  [get_ports {ddr4_adr[14]}]    ;# WE_B
+# set_property PACKAGE_PIN AA25 [get_ports {ddr4_adr[15]}]    ;# CAS_B
+# set_property PACKAGE_PIN T25  [get_ports {ddr4_adr[16]}]    ;# RAS_B
 # -- Control
-# set_property PACKAGE_PIN Y21  [get_ports ddr4_act_n]
-# set_property PACKAGE_PIN AE16 [get_ports {ddr4_cs_n[0]}]
-# set_property PACKAGE_PIN AE18 [get_ports {ddr4_cke[0]}]
-# set_property PACKAGE_PIN AE26 [get_ports {ddr4_odt[0]}]
-# set_property PACKAGE_PIN AC16 [get_ports ddr4_reset_n]
+# set_property PACKAGE_PIN P24  [get_ports ddr4_act_n]
+# set_property PACKAGE_PIN P25  [get_ports {ddr4_cs_n[0]}]
+# set_property PACKAGE_PIN P20  [get_ports {ddr4_cke[0]}]
+# set_property PACKAGE_PIN R23  [get_ports {ddr4_odt[0]}]
+# set_property PACKAGE_PIN P19  [get_ports ddr4_reset_n]
 # -- Bank address / group (x16: BG has 1 bit)
-# set_property PACKAGE_PIN AE17 [get_ports {ddr4_ba[0]}]
-# set_property PACKAGE_PIN AF17 [get_ports {ddr4_ba[1]}]
-# set_property PACKAGE_PIN AD16 [get_ports {ddr4_bg[0]}]
+# set_property PACKAGE_PIN P21  [get_ports {ddr4_ba[0]}]
+# set_property PACKAGE_PIN P26  [get_ports {ddr4_ba[1]}]
+# set_property PACKAGE_PIN R22  [get_ports {ddr4_bg[0]}]
 # -- Memory clock
-# set_property PACKAGE_PIN AA22 [get_ports {ddr4_ck_t[0]}]
-# set_property PACKAGE_PIN AB22 [get_ports {ddr4_ck_c[0]}]
+# set_property PACKAGE_PIN V24  [get_ports {ddr4_ck_t[0]}]
+# set_property PACKAGE_PIN W24  [get_ports {ddr4_ck_c[0]}]
 # -- DQS pairs
 # set_property PACKAGE_PIN AC26 [get_ports {ddr4_dqs_t[0]}]
 # set_property PACKAGE_PIN AD26 [get_ports {ddr4_dqs_c[0]}]
-# set_property PACKAGE_PIN AB17 [get_ports {ddr4_dqs_t[1]}]
-# set_property PACKAGE_PIN AC17 [get_ports {ddr4_dqs_c[1]}]
-# set_property PACKAGE_PIN V21  [get_ports {ddr4_dqs_t[2]}]
-# set_property PACKAGE_PIN V22  [get_ports {ddr4_dqs_c[2]}]
-# set_property PACKAGE_PIN W25  [get_ports {ddr4_dqs_t[3]}]
-# set_property PACKAGE_PIN W26  [get_ports {ddr4_dqs_c[3]}]
+# set_property PACKAGE_PIN AA22 [get_ports {ddr4_dqs_t[1]}]
+# set_property PACKAGE_PIN AB22 [get_ports {ddr4_dqs_c[1]}]
+# set_property PACKAGE_PIN AC18 [get_ports {ddr4_dqs_t[2]}]
+# set_property PACKAGE_PIN AD18 [get_ports {ddr4_dqs_c[2]}]
+# set_property PACKAGE_PIN AB17 [get_ports {ddr4_dqs_t[3]}]
+# set_property PACKAGE_PIN AC17 [get_ports {ddr4_dqs_c[3]}]
 # -- Data mask (DM_NO_DBI mode)
 # set_property PACKAGE_PIN AE25 [get_ports {ddr4_dm_n[0]}]
-# set_property PACKAGE_PIN Y20  [get_ports {ddr4_dm_n[1]}]
-# set_property PACKAGE_PIN U19  [get_ports {ddr4_dm_n[2]}]
-# set_property PACKAGE_PIN Y22  [get_ports {ddr4_dm_n[3]}]
-# -- Data byte 0 (Bank 64)
-# set_property PACKAGE_PIN AB25 [get_ports {ddr4_dq[0]}]
-# set_property PACKAGE_PIN AB26 [get_ports {ddr4_dq[1]}]
-# set_property PACKAGE_PIN AF24 [get_ports {ddr4_dq[2]}]
-# set_property PACKAGE_PIN AF25 [get_ports {ddr4_dq[3]}]
-# set_property PACKAGE_PIN AD24 [get_ports {ddr4_dq[4]}]
-# set_property PACKAGE_PIN AD25 [get_ports {ddr4_dq[5]}]
-# set_property PACKAGE_PIN AB24 [get_ports {ddr4_dq[6]}]
-# set_property PACKAGE_PIN AC24 [get_ports {ddr4_dq[7]}]
-# -- Data byte 1 (Bank 64)
-# set_property PACKAGE_PIN AA19 [get_ports {ddr4_dq[8]}]
-# set_property PACKAGE_PIN AB19 [get_ports {ddr4_dq[9]}]
-# set_property PACKAGE_PIN AA20 [get_ports {ddr4_dq[10]}]
-# set_property PACKAGE_PIN AB20 [get_ports {ddr4_dq[11]}]
-# set_property PACKAGE_PIN Y17  [get_ports {ddr4_dq[12]}]
-# set_property PACKAGE_PIN AA17 [get_ports {ddr4_dq[13]}]
-# set_property PACKAGE_PIN Y18  [get_ports {ddr4_dq[14]}]
-# set_property PACKAGE_PIN AA18 [get_ports {ddr4_dq[15]}]
-# -- Data byte 2 (Bank 65)
-# set_property PACKAGE_PIN U21  [get_ports {ddr4_dq[16]}]
-# set_property PACKAGE_PIN U22  [get_ports {ddr4_dq[17]}]
-# set_property PACKAGE_PIN T20  [get_ports {ddr4_dq[18]}]
-# set_property PACKAGE_PIN U20  [get_ports {ddr4_dq[19]}]
-# set_property PACKAGE_PIN T22  [get_ports {ddr4_dq[20]}]
-# set_property PACKAGE_PIN T23  [get_ports {ddr4_dq[21]}]
-# set_property PACKAGE_PIN W19  [get_ports {ddr4_dq[22]}]
-# set_property PACKAGE_PIN W20  [get_ports {ddr4_dq[23]}]
-# -- Data byte 3 (Bank 65)
-# set_property PACKAGE_PIN Y25  [get_ports {ddr4_dq[24]}]
-# set_property PACKAGE_PIN Y26  [get_ports {ddr4_dq[25]}]
-# set_property PACKAGE_PIN AA24 [get_ports {ddr4_dq[26]}]
-# set_property PACKAGE_PIN AA25 [get_ports {ddr4_dq[27]}]
-# set_property PACKAGE_PIN V23  [get_ports {ddr4_dq[28]}]
-# set_property PACKAGE_PIN W23  [get_ports {ddr4_dq[29]}]
-# set_property PACKAGE_PIN V24  [get_ports {ddr4_dq[30]}]
-# set_property PACKAGE_PIN W24  [get_ports {ddr4_dq[31]}]
+# set_property PACKAGE_PIN AE22 [get_ports {ddr4_dm_n[1]}]
+# set_property PACKAGE_PIN AD20 [get_ports {ddr4_dm_n[2]}]
+# set_property PACKAGE_PIN Y20  [get_ports {ddr4_dm_n[3]}]
+# -- Data byte 0 (Bank 64, DQ[0:7])
+# set_property PACKAGE_PIN AF24 [get_ports {ddr4_dq[0]}]
+# set_property PACKAGE_PIN AF25 [get_ports {ddr4_dq[1]}]
+# set_property PACKAGE_PIN AD24 [get_ports {ddr4_dq[2]}]
+# set_property PACKAGE_PIN AB26 [get_ports {ddr4_dq[3]}]
+# set_property PACKAGE_PIN AC24 [get_ports {ddr4_dq[4]}]
+# set_property PACKAGE_PIN AB25 [get_ports {ddr4_dq[5]}]
+# set_property PACKAGE_PIN AD25 [get_ports {ddr4_dq[6]}]
+# set_property PACKAGE_PIN AB24 [get_ports {ddr4_dq[7]}]
+# -- Data byte 1 (Bank 64, DQ[8:15])
+# set_property PACKAGE_PIN AC21 [get_ports {ddr4_dq[8]}]
+# set_property PACKAGE_PIN AD23 [get_ports {ddr4_dq[9]}]
+# set_property PACKAGE_PIN AD21 [get_ports {ddr4_dq[10]}]
+# set_property PACKAGE_PIN AC22 [get_ports {ddr4_dq[11]}]
+# set_property PACKAGE_PIN AB21 [get_ports {ddr4_dq[12]}]
+# set_property PACKAGE_PIN AE23 [get_ports {ddr4_dq[13]}]
+# set_property PACKAGE_PIN AE21 [get_ports {ddr4_dq[14]}]
+# set_property PACKAGE_PIN AC23 [get_ports {ddr4_dq[15]}]
+# -- Data byte 2 (Bank 64, DQ[16:23])
+# set_property PACKAGE_PIN AE16 [get_ports {ddr4_dq[16]}]
+# set_property PACKAGE_PIN AD19 [get_ports {ddr4_dq[17]}]
+# set_property PACKAGE_PIN AD16 [get_ports {ddr4_dq[18]}]
+# set_property PACKAGE_PIN AF17 [get_ports {ddr4_dq[19]}]
+# set_property PACKAGE_PIN AC19 [get_ports {ddr4_dq[20]}]
+# set_property PACKAGE_PIN AF19 [get_ports {ddr4_dq[21]}]
+# set_property PACKAGE_PIN AF18 [get_ports {ddr4_dq[22]}]
+# set_property PACKAGE_PIN AE17 [get_ports {ddr4_dq[23]}]
+# -- Data byte 3 (Bank 64, DQ[24:31])
+# set_property PACKAGE_PIN AA20 [get_ports {ddr4_dq[24]}]
+# set_property PACKAGE_PIN AA18 [get_ports {ddr4_dq[25]}]
+# set_property PACKAGE_PIN AA19 [get_ports {ddr4_dq[26]}]
+# set_property PACKAGE_PIN Y18  [get_ports {ddr4_dq[27]}]
+# set_property PACKAGE_PIN AB20 [get_ports {ddr4_dq[28]}]
+# set_property PACKAGE_PIN Y17  [get_ports {ddr4_dq[29]}]
+# set_property PACKAGE_PIN AB19 [get_ports {ddr4_dq[30]}]
+# set_property PACKAGE_PIN AA17 [get_ports {ddr4_dq[31]}]
 
 
 ##############################################################################
