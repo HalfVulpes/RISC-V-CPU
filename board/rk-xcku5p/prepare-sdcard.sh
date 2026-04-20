@@ -73,7 +73,10 @@ done
 # --- partition ---
 info "Partitioning ${DEV} (GPT, 200 MB FAT32 + rest ext4)"
 sgdisk --zap-all "${DEV}"
-sgdisk --new=1:0:+200M --typecode=1:EF00 --change-name=1:BOOT   "${DEV}"
+# typecode 0700 = "Microsoft Basic Data" GUID; this is what FatFs looks for
+# in GPT partition tables. Using EF00 (EFI System) will cause the FPGA bootrom
+# to silently skip the partition with "Not a valid FAT volume".
+sgdisk --new=1:0:+200M --typecode=1:0700 --change-name=1:BOOT   "${DEV}"
 sgdisk --new=2:0:0     --typecode=2:8300 --change-name=2:rootfs "${DEV}"
 partprobe "${DEV}"
 sleep 2

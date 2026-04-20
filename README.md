@@ -230,7 +230,10 @@ Partition the card (replace `/dev/sdX` with your actual device):
 
 ```bash
 sudo sgdisk --zap-all /dev/sdX
-sudo sgdisk --new=1:0:+200M --typecode=1:EF00 --change-name=1:BOOT   /dev/sdX
+# typecode 0700 = Microsoft Basic Data. The bootrom's FatFs GPT parser only
+# recognizes this GUID — NOT EFI System (EF00) — so the FAT partition must
+# be tagged as basic data.
+sudo sgdisk --new=1:0:+200M --typecode=1:0700 --change-name=1:BOOT   /dev/sdX
 sudo sgdisk --new=2:0:0     --typecode=2:8300 --change-name=2:rootfs /dev/sdX
 sudo mkfs.vfat -F 32 -n BOOT   /dev/sdX1
 sudo mkfs.ext4 -L rootfs       /dev/sdX2
