@@ -48,6 +48,7 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 | **Temperature** | Industrial, −40 °C to +100 °C |
 
 ![Board Dimensions](assets/board_dimensions.png)
+![Boot Linux Debian](assets/linux-boot.png)
 
 ---
 

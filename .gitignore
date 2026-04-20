@@ -17,3 +17,8 @@
 /.ivy2/
 /.sbt/
 /.Xilinx/
+
+/linux-stable/
+/opensbi/
+/rocket-chip/
+/u-boot/
