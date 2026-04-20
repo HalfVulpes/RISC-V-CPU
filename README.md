@@ -89,7 +89,7 @@ If you have Vivado 2023.2 installed, the RISC-V cross toolchain, and a Debian-ba
 
 ```bash
 # 1. Clone
-git clone --recurse-submodules https://github.com/HalfVulpes/vivado-risc-v.git
+git clone --recurse-submodules https://github.com/HalfVulpes/RISC-V-CPU.git
 cd vivado-risc-v
 
 # 2. Build everything (~60 min total)
@@ -154,7 +154,7 @@ sudo usermod -aG plugdev,dialout $USER
 ### 2. Clone and Build
 
 ```bash
-git clone --recurse-submodules https://github.com/HalfVulpes/vivado-risc-v.git
+git clone --recurse-submodules https://github.com/HalfVulpes/RISC-V-CPU.git
 cd vivado-risc-v
 ```
 
@@ -200,20 +200,33 @@ The FPGA bootrom (embedded in the bitstream) loads `BOOT.ELF` from a **FAT16/32 
 | 1 | FAT32 | ~200 MB | `BOOT.ELF`, `Image`, `system.dtb`, `extlinux/extlinux.conf` |
 | 2 | ext4  | rest    | Debian rootfs |
 
-**Compile the device tree binary:**
+#### Automated (recommended)
+
+A ready-made preparation script lives at [`board/rk-xcku5p/prepare-sdcard.sh`](board/rk-xcku5p/prepare-sdcard.sh). It partitions, formats, and populates the card in one step, with safety checks that refuse to wipe your host's root disk.
+
+```bash
+lsblk                    # find your SD card device (typically /dev/sdX)
+sudo ./board/rk-xcku5p/prepare-sdcard.sh /dev/sdX
+```
+
+The script prompts for uppercase `YES` before wiping. It expects the build artifacts from step 2 (`workspace/boot.elf`, kernel `Image`, DTS, and `debian-riscv64/rootfs.tar.gz`) to already exist.
+
+#### Manual procedure (if you prefer to do it yourself)
+
+Compile the device tree binary:
 
 ```bash
 dtc -O dtb -o workspace/rocket64b4/system.dtb workspace/rocket64b4/system-rk-xcku5p.dts
 ```
 
-**Identify your SD card device:**
+Identify your SD card device:
 
 ```bash
 lsblk
 # ⚠ Double-check the device name. Writing to the wrong device destroys data.
 ```
 
-**Partition the card** (replace `/dev/sdX` with your actual device):
+Partition the card (replace `/dev/sdX` with your actual device):
 
 ```bash
 sudo sgdisk --zap-all /dev/sdX
@@ -224,7 +237,7 @@ sudo mkfs.ext4 -L rootfs       /dev/sdX2
 sudo partprobe /dev/sdX
 ```
 
-**Populate the FAT boot partition:**
+Populate the FAT boot partition:
 
 ```bash
 sudo mkdir -p /mnt/boot
@@ -511,11 +524,15 @@ You should immediately see OpenSBI banner text. If JTAG boot works but flash-boo
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `Cannot mount SD: Not a valid FAT volume` (bootrom message) | Partition 1 is not actually FAT32, or a different filesystem | Reformat with `mkfs.vfat -F 32`, or re-run [`prepare-sdcard.sh`](board/rk-xcku5p/prepare-sdcard.sh). **This message is good news — it means DDR4 works and the CPU is running.** |
+| `Cannot read BOOT.ELF: No such file` | FAT partition missing `BOOT.ELF` | Re-copy `workspace/boot.elf` to the FAT partition, case-sensitive filename |
+| Console silent, DONE LED on | DDR4 calibration failing or CPU stuck | Run the xsdb probe in step 4 above. If `CAL_STATUS.RANK0.01_DQS_GATE = FAIL`, verify [`ddr4.xdc`](board/rk-xcku5p/ddr4.xdc) matches `KU5P_DEMO/06_DDR_AXI/Constraint/Phy_Pin.xdc` |
 | `xsdb: command not found` under `sudo` | `sudo` strips Vivado PATH | `sudo -E ...`, or install udev rules and drop `sudo` |
 | `Permission denied` on `/dev/ttyUSB1` | Not in `dialout` group | `sudo usermod -aG dialout $USER`, re-login |
 | `Connection refused` from `xsdb` | `hw_server` not running | Start it in a separate terminal |
 | `make flash` hangs after "Erase Operation" | Flash is locked (wrong Vivado) | See Vivado version warning at top |
 | DONE LED off after `make flash` | Full power-cycle needed | Unplug 12 V, wait 3 s, plug in |
+| BD 41-238 `FREQ_HZ does not match` on UART/SD | Fixed FREQ_HZ in shared Verilog vs our 99.975 MHz clk_wiz output | The `uart.v` and `axi_sdc_controller.v` sources have been patched to drop the hardcoded `FREQ_HZ 100000000` — resync if you restored them |
 
 ---
 
@@ -536,6 +553,7 @@ All board support files are in [`board/rk-xcku5p/`](board/rk-xcku5p/):
 | [`ethernet-rk-xcku5p.v`](board/rk-xcku5p/ethernet-rk-xcku5p.v) | UltraScale+ RGMII MAC wrapper (BUFG + USE_CLK90) |
 | [`ethernet-rk-xcku5p.tcl`](board/rk-xcku5p/ethernet-rk-xcku5p.tcl) | Vivado source/constraint file adder |
 | [`board_files/rk_xcku5p_f/1.2/`](board/rk-xcku5p/board_files/rk_xcku5p_f/1.2/) | Vivado board definition (board.xml, presets) |
+| [`prepare-sdcard.sh`](board/rk-xcku5p/prepare-sdcard.sh) | One-shot SD card partition, format, and populate script |
 
 ---
 
@@ -547,24 +565,39 @@ The physical DRAMs on the board are Micron `MT40A512M16LY-062E` (DDR4-3200 speed
 
 The factory demo (`KU5P_DEMO/06_DDR_AXI/ddr4_0.xci`) uses `MT40A512M16HA-075E`, which Vivado's internal timing model matches to the actual chip behavior at DDR4-2666. This is what `board/rk-xcku5p/riscv-2023.2.tcl` configures.
 
+### DDR4 pinout: use `Constraint/Phy_Pin.xdc`, not `example_design.xdc`
+
+Inside `KU5P_DEMO/06_DDR_AXI/` you will find **two** DDR4 XDC files. Only one matches the real PCB:
+
+| Path | Content | Use it? |
+|---|---|---|
+| `ddr4_0_ex/imports/example_design.xdc` | MIG's auto-generated standalone example placeholder pins (e.g. `sys_clk_p` at `AD21/AE21`, DQs split across two banks) | **No** — these are filler pins for MIG's standalone test |
+| `Constraint/Phy_Pin.xdc` | Actual board-level pin assignments used by the working demo | **Yes** — this is what [`ddr4.xdc`](board/rk-xcku5p/ddr4.xdc) is derived from |
+
+Using the wrong file gives a design that synthesizes and routes clean but fails `DQS_GATE` calibration (stage 1), because the wires go to entirely different FPGA pins than the PCB traces. All 32 DQ bits on this board are in **Bank 64**; Bank 65 carries only addr/ctrl/clock.
+
 ### Clock architecture
 
 ```
-T24/U24 (SG3225VAN, 200 MHz LVDS)
+T24/U24 (SG3225VAN, 200 MHz DIFF_SSTL12)
     │
     ▼
-ddr4_0 (MIG)                    clk_wiz_0 (MMCME4)
-┌──────────────┐                ┌──────────────┐
-│ sys_clk in   │                │ clk_in1      │◄── 200 MHz
-│ c0_ddr4_ui_clk (333.25 MHz) ──▶│              │
-│ addn_ui_clk1 (200 MHz) ────────▶              │
-└──────────────┘                │ clk_out1 ────┤ → 125 MHz (Ethernet)
-                                │ clk_out2 ────┤ → 125 MHz @90° (RGMII TX)
-                                │ clk_out3 ────┤ → 100 MHz (CPU/AXI/SD/UART)
-                                └──────────────┘
+ ddr4_0 (MIG, factory-matching config)           clk_wiz_0 (MMCME4)
+┌────────────────────┐                          ┌──────────────────┐
+│ c0_sys_clk         │                          │ clk_in1 (No_Buf) │◄── 333.25 MHz
+│ c0_ddr4_ui_clk  ───┼──────────────────────────┼─ (333.25 MHz in) │
+│ addn_ui_clkout1=None (disabled — matches      │                  │
+│  factory; enabling it desyncs DQS_GATE cal)   │ clk_out1 ────────┼─▶ 124.97 MHz (Ethernet)
+└────────────────────┘                          │ clk_out2 ────────┼─▶ 124.97 MHz @90° (RGMII TX)
+                                                 │ clk_out3 ────────┼─▶ 99.975 MHz (CPU/AXI/SD/UART)
+                                                 └──────────────────┘
 ```
 
-The DDR4 IP's embedded PLL is the only clock generator directly driven by the 200 MHz input. Its `addn_ui_clkout1` output is used to feed `clk_wiz_0`, which fans out derived clocks for the rest of the SoC. The UI clock (333.25 MHz) does not divide cleanly to 125/100 MHz, which is why `addn_ui_clkout1` is required.
+The DDR4 MIG is the only consumer of the 200 MHz differential input. Its 333.25 MHz UI clock feeds `clk_wiz_0`, which fans out to the rest of the SoC.
+
+**Why no `addn_ui_clkout1`:** the factory MIG config leaves this output disabled. Enabling it (to get a clean 200 MHz reference) causes the DDR4 PLL to reshuffle BUFG/MMCM placement and breaks `DQS_GATE` calibration — observable via `hw_manager` as `CAL_STATUS.RANK0.01_DQS_GATE = FAIL`. We match the factory and accept the slight frequency skew: `clk_out1` = 124.968750 MHz (~0.025% low) and `clk_out3` = 99.975000 MHz. Both are within the tolerance of RGMII and the SD 50 MHz clock budget; baud-rate error on the UART at 115200 is under 0.1%.
+
+**Hardcoded `FREQ_HZ` removed from `uart.v` and `axi_sdc_controller.v`:** the shared IP Verilog used to declare `FREQ_HZ 100000000` as an `X_INTERFACE_PARAMETER`, which caused BD validation to error out on the 99.975 MHz clock. The declarations were removed (BD now infers frequency from the net), which is transparent to other boards that feed an exact 100 MHz.
 
 ### HP Bank 66 RGMII — no BUFR/ODELAYE3
 

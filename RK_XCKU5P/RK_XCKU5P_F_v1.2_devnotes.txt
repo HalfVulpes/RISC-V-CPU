@@ -56,8 +56,10 @@
   Document Change Log:
     V0.1  2025-05-10  Initial release
     V0.2  2025-08-07  IMX415 camera: software fix obsoletes the resistor mod
-    V0.3  2026-04-19  DDR4 pinout corrected to match factory MIG XDC,
-                      documented MT40A512M16HA-075E memory part selection
+    V0.3  2026-04-19  DDR4 pinout corrected (to Constraint/Phy_Pin.xdc,
+                      NOT ddr4_0_ex/imports/example_design.xdc which contains
+                      MIG placeholder pins); documented MT40A512M16HA-075E
+                      memory part selection; documented ADDN_UI_CLKOUT1 trap
 
 
 --------------------------------------------------------------------------------
@@ -341,6 +343,18 @@
   [CRITICAL] DDR4 memory part: select "MT40A512M16HA-075E" in MIG, NOT
              "MT40A512M16LY-075". The LY-075 timing model does not match the
              actual LY chips on this board and will fail DQS_GATE calibration.
+
+  [CRITICAL] DDR4 pinout source: use KU5P_DEMO/06_DDR_AXI/Constraint/Phy_Pin.xdc
+             as the authoritative pin reference. Do NOT use
+             ddr4_0_ex/imports/example_design.xdc -- that file contains MIG's
+             standalone example-design placeholder pins (e.g. sys_clk at
+             AD21/AE21, DQs split across banks). The real board has all 32 DQs
+             in Bank 64, ck_t/c at V24/W24, reset_n at P19.
+
+  [CRITICAL] ADDN_UI_CLKOUT1: leave this MIG parameter set to "None" (factory
+             default). Enabling it (to generate an extra clean 200 MHz clock
+             for user logic) causes the DDR4 PLL to reshuffle BUFG/MMCM
+             placement, breaking DQS_GATE calibration on this board.
 
   [WARNING]  MIPI data-lane pins (T20/T22/T23/U19-U22/V21/V22) may overlap
              with some board-level routing. Verify against the schematic

@@ -294,6 +294,10 @@ set_property IOSTANDARD LVCMOS12 [get_ports pcie_perst_n]
 #   C0.DDR4_DataMask         = DM_NO_DBI
 #   C0.DDR4_OutputDriverImpedenceControl = RZQ/7
 #   C0.DDR4_OnDieTermination = RZQ/6
+#   ADDN_UI_CLKOUT1_FREQ_HZ  = None          -- leave DISABLED. Enabling this
+#                                                reshuffles the DDR4 MMCM BUFG
+#                                                placement and breaks DQS_GATE
+#                                                calibration on this board.
 #
 # The pin assignments below can be let MIG auto-generate, OR supplied explicitly
 # (uncomment to use). MIG uses the exact same pinout either way because of the
