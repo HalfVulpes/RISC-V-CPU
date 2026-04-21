@@ -11,6 +11,7 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 
 - [Board Overview](#board-overview)
 - [SoC Configuration](#soc-configuration)
+- [Performance & Resource Utilization](#performance--resource-utilization)
 - [Peripheral Map](#peripheral-map-as-seen-by-linux)
 - [Quick Start](#quick-start)
 - [Detailed Build Instructions](#detailed-build-instructions)
@@ -67,6 +68,31 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 | **Vivado version** | **2023.2 only** (see warning below) |
 
 > **⚠ Vivado 2023.2 only.** A hardware issue with the MX25U51245G QSPI flash causes it to be **permanently locked** when programmed with Vivado 2024.x or later. Do not use newer Vivado versions on this board.
+
+---
+
+## Performance & Resource Utilization
+
+**CoreMark** (1 iteration per hart, single-threaded build running on one Debian userspace process):
+
+![CoreMark on 4-core RV64GC](assets/coremark-performance-RVGC64.jpg)
+
+Interpret the number with context: this is a 100 MHz in-order Rocket tile — a rough comparison is to a low-end 2010-era embedded core. It's plenty for exercising the full Linux/Debian stack, driver bring-up, and network plumbing; it is not a performance platform.
+
+**Post-implementation resource utilization** for the 4-core `rocket64b4` configuration targeting the XCKU5P:
+
+![Utilization table](assets/utilizations_4coreRVGC64_table.png)
+
+![Utilization diagram](assets/utilizations.png)
+
+Headline numbers from the table:
+
+- **CLB LUTs**: comfortably under the 217 K budget, leaving room for small user peripherals
+- **CLB registers**: similar comfortable margin
+- **Block RAM**: dominated by the Rocket tiles' L1 caches + DDR4 MIG debug/scratch
+- **DSP48E2**: used by the FPU (sfma/dfma mul-add arrays) and the divider path
+
+If you add user logic (video, MIPI, your own accelerators), target < 70 % LUT/FF to keep placement flexible — timing closure gets sticky above that on this part at 100 MHz.
 
 ---
 
