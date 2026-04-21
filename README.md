@@ -59,7 +59,7 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 | | |
 |---|---|
 | **ISA** | RV64GC (RV64IMAFDC) |
-| **Cores** | 4 (rocket64b4) 2(rocket64b4l2w) 1(rocket64z1)— recommended |
+| **Cores** | 4 (rocket64b4) 4(rocket64b4l2w) — recommended |
 | **CPU / AXI / SD / UART clock** | 99.975 MHz (≈100 MHz, derived from DDR4 UI clock) |
 | **Ethernet MAC clock** | 124.97 MHz (≈125 MHz) + 124.97 MHz @90° for RGMII USE_CLK90 |
 | **DDR4 UI clock** | 333.25 MHz — feeds `clk_wiz_0` as input |
@@ -70,6 +70,28 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 > **⚠ Vivado 2023.2 only.** A hardware issue with the MX25U51245G QSPI flash causes it to be **permanently locked** when programmed with Vivado 2024.x or later. Do not use newer Vivado versions on this board.
 
 ---
+
+Some of available CONFIG values:
+
+- 64-bit big RISC-V cores, Linux capable:
+  - `rocket64b1` - 1 core
+  - `rocket64b2` - 2 cores
+  - `rocket64b2l2` - 2 cores with 512KB level 2 cache
+  - `rocket64b2gem` - 2 cores with 512KB level 2 cache and Gemmini accelerator
+  - `rocket64b4l2w` - 4 cores with 512KB level 2 cache and wide 256-bit memory bus
+  - `rocket64b4` - 4 cores
+  - `rocket64b8` - 8 cores
+- 64-bit Sonic BOOM cores, Linux capable:
+  - `rocket64w1` - 1-wide Small BOOM, 1 core
+  - `rocket64x1` - 2-wide superscalar Medium BOOM, 1 core
+  - `rocket64y1` - 3-wide superscalar Large BOOM, 1 core
+  - `rocket64z1` - 4-wide superscalar Mega BOOM, 1 core
+- 32-bit small RISC-V cores, Linux not supported:
+  - `rocket32s1` - 1 core
+  - `rocket32s2` - 2 cores
+  - `rocket32s4` - 4 cores
+  - `rocket32s8` - 8 cores
+  - `rocket32s16` - 16 cores
 
 ## Performance & Resource Utilization
 
