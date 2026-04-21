@@ -59,7 +59,7 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 | | |
 |---|---|
 | **ISA** | RV64GC (RV64IMAFDC) |
-| **Cores** | 4 (rocket64b4) — recommended |
+| **Cores** | 4 (rocket64b4) 2(rocket64b4l2w) 1(rocket64z1)— recommended |
 | **CPU / AXI / SD / UART clock** | 99.975 MHz (≈100 MHz, derived from DDR4 UI clock) |
 | **Ethernet MAC clock** | 124.97 MHz (≈125 MHz) + 124.97 MHz @90° for RGMII USE_CLK90 |
 | **DDR4 UI clock** | 333.25 MHz — feeds `clk_wiz_0` as input |
