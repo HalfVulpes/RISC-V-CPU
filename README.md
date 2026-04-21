@@ -24,6 +24,7 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
   - [Ethernet / SSH](#ethernet--ssh)
 - [40-Pin Expansion Connector (J1)](#40-pin-expansion-connector-j1)
 - [External UART](#external-uart-40-pin-connector)
+- [Known Issues & Limitations](#known-issues--limitations)
 - [Troubleshooting](#troubleshooting)
 - [Board Files Reference](#board-files-reference)
 - [Technical Notes](#technical-notes)
@@ -58,11 +59,11 @@ Runs Debian from a MicroSD card with Gigabit Ethernet, UART console, and 2 GB DD
 |---|---|
 | **ISA** | RV64GC (RV64IMAFDC) |
 | **Cores** | 4 (rocket64b4) — recommended |
-| **CPU / AXI / SD / UART clock** | 100 MHz |
-| **Ethernet MAC clock** | 125 MHz (+125 MHz @90° for RGMII USE_CLK90) |
-| **DDR4 UI clock** | 333.25 MHz (internal only) |
-| **DDR4 PLL `addn_ui_clkout1`** | 200 MHz — feeds the user clk_wiz |
+| **CPU / AXI / SD / UART clock** | 99.975 MHz (≈100 MHz, derived from DDR4 UI clock) |
+| **Ethernet MAC clock** | 124.97 MHz (≈125 MHz) + 124.97 MHz @90° for RGMII USE_CLK90 |
+| **DDR4 UI clock** | 333.25 MHz — feeds `clk_wiz_0` as input |
 | **RAM visible to Linux** | 2 GB at 0x00000000 |
+| **Observed DRAM bandwidth** | ~40 MB/s (see [Known Issues](#known-issues--limitations)) |
 | **Vivado version** | **2023.2 only** (see warning below) |
 
 > **⚠ Vivado 2023.2 only.** A hardware issue with the MX25U51245G QSPI flash causes it to be **permanently locked** when programmed with Vivado 2024.x or later. Do not use newer Vivado versions on this board.
@@ -91,7 +92,7 @@ If you have Vivado 2023.2 installed, the RISC-V cross toolchain, and a Debian-ba
 ```bash
 # 1. Clone
 git clone --recurse-submodules https://github.com/HalfVulpes/RISC-V-CPU.git
-cd vivado-risc-v
+cd RISC-V-CPU
 
 # 2. Build everything (~60 min total)
 make BOARD=rk-xcku5p CONFIG=rocket64b4 bitstream
@@ -107,6 +108,9 @@ make BOARD=rk-xcku5p CONFIG=rocket64b4 flash
 
 # 5. Power-cycle the board, then connect:
 sudo picocom -b 115200 /dev/ttyUSB1
+
+# Optional Open Vivado GUI for block design and IPs 
+make BOARD=rk-xcku5p CONFIG=rocket64b4 vivado-gui
 ```
 
 Default login: **root / root**
@@ -156,22 +160,22 @@ sudo usermod -aG plugdev,dialout $USER
 
 ```bash
 git clone --recurse-submodules https://github.com/HalfVulpes/RISC-V-CPU.git
-cd vivado-risc-v
+cd RISC-V-CPU
 ```
 
-Build all three components in order. Each is independent; you can re-run any of them later without rebuilding the others.
+Build all four artefacts. Each is independent; you can re-run any of them later without rebuilding the others. The `linux`, `u-boot`, and `opensbi` sub-makes are invoked with `-j$(nproc)` internally — no need to pass `-j` yourself.
 
 ```bash
 # FPGA bitstream (~45 min on an 8-core machine)
 make BOARD=rk-xcku5p CONFIG=rocket64b4 bitstream
 
-# Linux kernel (~15 min first time)
+# Linux kernel (~5 min on a modern 8-core host)
 make BOARD=rk-xcku5p CONFIG=rocket64b4 linux
 
 # OpenSBI + U-Boot → workspace/boot.elf (the "BOOT.ELF" the bootrom loads)
 make BOARD=rk-xcku5p CONFIG=rocket64b4 bootloader
 
-# Debian RISC-V rootfs (~1 GB download)
+# Debian RISC-V rootfs (~1 GB download, then cached)
 make debian-riscv64/rootfs.tar.gz
 ```
 
@@ -328,23 +332,25 @@ sudo dmesg | grep -E "ttyUSB|FTDI" | tail -5
 Open the console at **115200 8N1**:
 
 ```bash
-picocom -b 115200 /dev/ttyUSB1              # recommended
-# or
-screen /dev/ttyUSB1 115200
+screen /dev/ttyUSB1 115200                  # recommended — handles U-Boot's redraw cleanly
 # or
 minicom -D /dev/ttyUSB1 -b 115200
 # or
 tio -b 115200 /dev/ttyUSB1
+# or
+picocom -b 115200 /dev/ttyUSB1              # works, but can garble U-Boot's vt100 updates
 ```
+
+> `picocom` handles the bootrom output fine but mangles U-Boot's terminal redraws and the Debian login prompt's colour escapes. `screen` is the smoothest on this board — use it as your default.
 
 **Exit keys:**
 
 | Tool | Exit |
 |---|---|
-| picocom | `Ctrl-A` then `Ctrl-X` |
 | screen | `Ctrl-A` then `K`, `y` |
 | minicom | `Ctrl-A` then `Q`, Enter |
 | tio | `Ctrl-T` then `Q` |
+| picocom | `Ctrl-A` then `Ctrl-X` |
 
 ### Login
 
@@ -444,6 +450,41 @@ A second UART instance is exposed on J1 pins 35/36 for use with 3.3 V logic devi
 | 38 | GND | — | Remote device GND |
 
 In the device tree this appears as `serial1`. Use 115200 baud, 8N1.
+
+---
+
+## Known Issues & Limitations
+
+These are things the design works around, quirks observed during bring-up, or hardware limits of this board + SoC combination. If you hit one, please don't treat it as a build regression — it's already documented.
+
+### Very low memory bandwidth (~40 MB/s observed)
+
+On 4-core RV64GC at 100 MHz the Debian rootfs sees only tens of MB/s of useful DRAM bandwidth via `dd if=/dev/zero of=/tmp/f bs=1M count=64`. Root causes:
+
+- **The AXI fabric is 100 MHz**, not the DDR4 UI clock (333 MHz). The SmartConnect between the CPU's MEM_AXI4 and the DDR4 controller's `C0_DDR4_S_AXI` is clocked by `clk_out3` (99.975 MHz) on the CPU side and `c0_ddr4_ui_clk` (333.25 MHz) on the memory side. CPU issue rate is the bottleneck.
+- **Rocket Chip's in-order design at 100 MHz** has a short ROB and no aggressive memory-level parallelism. With 4 cores × ~1 outstanding load each, the memory pipeline is mostly idle.
+- **L1/L2 cache latencies dominate short copies**; the 40 MB/s number is essentially `sizeof(copy) / (cache-refill + writeback)`.
+
+Not a fix — this is the cost of running a 100 MHz RV64GC soft-core against a memory controller that prefers ~2 GB/s pipelined accesses. Clock the CPU higher (unlikely to close timing on this XCKU5P at > ~120 MHz with 4 cores) or use a direct AXI DMA master if you need throughput.
+
+### Ethernet link is slow to come up
+
+The RTL8211F PHY's reset (`PHYRSTB`) is **not** wired to FPGA GPIO on this board — it's tied to a board-level pull-up and relies on the PHY's internal power-on-reset circuit. Consequences:
+
+- On a **first** power-up after idle, the link negotiates within ~5 seconds most of the time.
+- After some `riscv_wrapper.bit` reloads (QSPI re-flash without cycling 12 V), the PHY can end up in a stuck state where the link never comes up. Two or three full power-cycles (unplug 12 V barrel jack for ~10 s, not just a reset) usually clears it.
+- Watch `dmesg` on Linux for `eth0: link is Up` — if it never arrives within ~30 s, power-cycle.
+- `ethtool eth0` shows the negotiated speed once up.
+
+If you consistently get no link, MDIO may not be talking to the PHY. Check `mdio_read` traffic via an ILA on `eth_mdio_clock`/`eth_mdio_data` or try swapping the Ethernet cable (the jitter tolerance on some CAT5e is marginal at 1 Gbps).
+
+### Serial console redraw artefacts with `picocom`
+
+U-Boot's menu redraws and Debian's login prompt escapes confuse `picocom`'s default terminal handling. Switch to `screen` or `tio`. See [Serial Console](#serial-console).
+
+### CPU clock is 99.975 MHz, not exactly 100 MHz
+
+Because `clk_wiz_0` is fed from the DDR4 UI clock (333.25 MHz = 1000/3), the 100 MHz output is actually 99.975 MHz (a 0.025 % shortfall). UART baud rate error at 115200 is ~0.1 %, well within UART spec. Ethernet TX/RX at "125 MHz" is actually 124.97 MHz, ~250 ppm high; the RTL8211F tolerates this comfortably. See the Clock architecture note in [Technical Notes](#technical-notes) for why we don't feed clk_wiz from a cleaner 200 MHz source.
 
 ---
 

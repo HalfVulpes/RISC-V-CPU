@@ -123,7 +123,7 @@ workspace/patch-linux-done: patches/linux.patch patches/fpga-axi-sdc.c patches/f
 
 linux-stable/arch/riscv/boot/Image: workspace/patch-linux-done
 	$(MAKE) -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) oldconfig
-	$(MAKE) -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) all
+	$(MAKE) -C linux-stable ARCH=riscv CROSS_COMPILE=$(CROSS_COMPILE_LINUX) -j$(shell nproc) all
 
 
 # --- build U-Boot ---
@@ -160,7 +160,7 @@ workspace/patch-u-boot-done: u-boot/configs/vivado_riscv64_defconfig
 
 u-boot/u-boot-nodtb.bin: workspace/patch-u-boot-done $(U_BOOT_SRC)
 	$(MAKE) -C u-boot CROSS_COMPILE=$(CROSS_COMPILE_LINUX) BOARD=vivado_riscv64 vivado_riscv64_config
-	$(MAKE) -C u-boot \
+	$(MAKE) -C u-boot -j$(shell nproc) \
 	  BOARD=vivado_riscv64 \
 	  CC=$(CROSS_COMPILE_LINUX)gcc \
 	  CROSS_COMPILE=$(CROSS_COMPILE_LINUX) \
@@ -182,7 +182,7 @@ workspace/boot.elf: opensbi/build/platform/vivado-risc-v/firmware/fw_payload.elf
 opensbi/build/platform/vivado-risc-v/firmware/fw_payload.elf: $(wildcard patches/opensbi/*) u-boot/u-boot-nodtb.bin
 	mkdir -p opensbi/platform/vivado-risc-v
 	cp -p -r patches/opensbi/* opensbi/platform/vivado-risc-v
-	$(MAKE) -C opensbi CROSS_COMPILE=$(CROSS_COMPILE_LINUX) PLATFORM=vivado-risc-v \
+	$(MAKE) -C opensbi -j$(shell nproc) CROSS_COMPILE=$(CROSS_COMPILE_LINUX) PLATFORM=vivado-risc-v \
 	 FW_PAYLOAD_PATH=`realpath u-boot/u-boot-nodtb.bin`
 
 opensbi-qemu:
